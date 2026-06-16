@@ -49,6 +49,7 @@ read_branches:
   - Flag_hfNoisyHitsFilter
   - Flag_HBHENoiseFilter
   - Flag_HBHENoiseIsoFilter
+  - HLT_Mu50
   - PuppiMET_pt
   - PuppiMET_phi
   - RawPuppiMET_pt
@@ -118,6 +119,25 @@ read_branches:
   - FatJet_tau4
   - FatJet_subJetIdx1
   - FatJet_subJetIdx2
+  - FatJet_particleNetWithMass_H4qvsQCD
+  - FatJet_particleNetWithMass_HbbvsQCD
+  - FatJet_particleNetWithMass_HccvsQCD
+  - FatJet_particleNetWithMass_QCD
+  - FatJet_particleNetWithMass_TvsQCD
+  - FatJet_particleNetWithMass_WvsQCD
+  - FatJet_particleNetWithMass_ZvsQCD
+  - FatJet_particleNet_QCD
+  - FatJet_particleNet_QCD0HF
+  - FatJet_particleNet_QCD1HF
+  - FatJet_particleNet_QCD2HF
+  - FatJet_particleNet_XbbVsQCD
+  - FatJet_particleNet_XccVsQCD
+  - FatJet_particleNet_XggVsQCD
+  - FatJet_particleNet_XqqVsQCD
+  - FatJet_particleNet_XteVsQCD
+  - FatJet_particleNet_XtmVsQCD
+  - FatJet_particleNet_XttVsQCD
+  - FatJet_particleNet_massCorr
   - SubJet_pt
   - SubJet_eta
   - SubJet_phi

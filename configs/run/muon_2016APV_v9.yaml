@@ -14,22 +14,13 @@ required_triggers:
   - HLT_TkMu50
 
 stored_tagger_names:
-  - btagCSVV2
-  - btagDDBvLV2
-  - btagDDCvBV2
-  - btagDDCvLV2
-  - btagDeepB
-  - btagHbb
   - deepTagMD_H4qvsQCD
   - deepTagMD_HbbvsQCD
   - deepTagMD_TvsQCD
   - deepTagMD_WvsQCD
   - deepTagMD_ZHbbvsQCD
   - deepTagMD_ZHccvsQCD
-  - deepTagMD_ZbbvsQCD
   - deepTagMD_ZvsQCD
-  - deepTagMD_bbvsLight
-  - deepTagMD_ccvsLight
   - particleNetMD_QCD
   - particleNetMD_Xbb
   - particleNetMD_Xcc
@@ -59,6 +50,8 @@ read_branches:
   - Flag_hfNoisyHitsFilter
   - Flag_HBHENoiseFilter
   - Flag_HBHENoiseIsoFilter
+  - HLT_Mu50
+  - HLT_TkMu50
   - PuppiMET_pt
   - PuppiMET_phi
   - RawPuppiMET_pt
@@ -130,6 +123,25 @@ read_branches:
   - FatJet_tau4
   - FatJet_subJetIdx1
   - FatJet_subJetIdx2
+  - FatJet_deepTagMD_H4qvsQCD
+  - FatJet_deepTagMD_HbbvsQCD
+  - FatJet_deepTagMD_TvsQCD
+  - FatJet_deepTagMD_WvsQCD
+  - FatJet_deepTagMD_ZHbbvsQCD
+  - FatJet_deepTagMD_ZHccvsQCD
+  - FatJet_deepTagMD_ZvsQCD
+  - FatJet_particleNetMD_QCD
+  - FatJet_particleNetMD_Xbb
+  - FatJet_particleNetMD_Xcc
+  - FatJet_particleNetMD_Xqq
+  - FatJet_particleNet_H4qvsQCD
+  - FatJet_particleNet_HbbvsQCD
+  - FatJet_particleNet_HccvsQCD
+  - FatJet_particleNet_QCD
+  - FatJet_particleNet_TvsQCD
+  - FatJet_particleNet_WvsQCD
+  - FatJet_particleNet_ZvsQCD
+  - FatJet_particleNet_mass
   - SubJet_pt
   - SubJet_eta
   - SubJet_phi
