@@ -24,6 +24,7 @@ std::pair<int, float> closest_index(const ObjectView &obj, const std::vector<Obj
 bool safe_bool(const Event &event, std::string_view branch_name);
 float safe_object_float(const ObjectView &obj, std::string_view attr, float fallback = -99.0f);
 std::int32_t safe_object_int(const ObjectView &obj, std::string_view attr, std::int32_t fallback = -1);
+bool pass_jet_id(const ObjectView &jet, std::string_view nano_version, bool tight_lep_veto);
 bool pass_trigger(const Event &event, const std::vector<std::string> &triggers);
 
 }  // namespace nano

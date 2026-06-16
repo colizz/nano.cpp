@@ -12,6 +12,7 @@
 #include <cmath>
 #include <limits>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <string_view>
 
@@ -35,26 +36,8 @@ std::vector<ObjectView> sort_by_pt(std::vector<ObjectView> objects) {
   return objects;
 }
 
-bool pass_v15_jet_id(const ObjectView &jet, bool tight_lep_veto) {
-  // Jet ID definition: https://twiki.cern.ch/twiki/bin/viewauth/CMS/JetID13p6TeV#nanoAOD_Flags
-  const auto abs_eta = std::abs(jet.eta());
-  bool pass_tight = false;
-  if (abs_eta <= 2.6f) {
-    pass_tight = safe_object_float(jet, "neHEF", 1.0f) < 0.99f && safe_object_float(jet, "neEmEF", 1.0f) < 0.9f &&
-                 safe_object_int(jet, "chMultiplicity", 0) + safe_object_int(jet, "neMultiplicity", 0) > 1 &&
-                 safe_object_float(jet, "chHEF", 0.0f) > 0.01f && safe_object_int(jet, "chMultiplicity", 0) > 0;
-  } else if (abs_eta <= 2.7f) {
-    pass_tight = safe_object_float(jet, "neHEF", 1.0f) < 0.9f && safe_object_float(jet, "neEmEF", 1.0f) < 0.99f;
-  } else if (abs_eta <= 3.0f) {
-    pass_tight = safe_object_float(jet, "neHEF", 1.0f) < 0.99f;
-  } else {
-    pass_tight = safe_object_int(jet, "neMultiplicity", 0) >= 2 && safe_object_float(jet, "neEmEF", 1.0f) < 0.4f;
-  }
-
-  if (!tight_lep_veto || abs_eta > 2.7f) {
-    return pass_tight;
-  }
-  return pass_tight && safe_object_float(jet, "muEF", 0.0f) < 0.8f && safe_object_float(jet, "chEmEF", 0.0f) < 0.8f;
+float safe_scalar_float(const Event &event, std::string_view branch_name, float fallback) {
+  return event.schema().find(branch_name) ? event.scalar<float>(branch_name) : fallback;
 }
 
 std::vector<ObjectView> subjets_for(const ObjectView &fatjet, Event &event, std::string_view subjet_name) {
@@ -76,12 +59,15 @@ std::vector<ObjectView> subjets_for(const ObjectView &fatjet, Event &event, std:
 HeavyFlavBaseProducer::HeavyFlavBaseProducer(ProducerConfig config) : config_(std::move(config)) {
   jme_corrector_ = std::make_unique<JetMETCorrector>(config_);
   pu_weight_producer_ = std::make_unique<PuWeightProducer>(config_);
-  top_pt_weight_producer_ = std::make_unique<TopPtWeightProducer>();
+  top_pt_weight_producer_ = std::make_unique<TopPtWeightProducer>(config_.era);
   fatjet_gen_matching_ = std::make_unique<FatjetGenMatching>();
 }
 
 HeavyFlavBaseProducer::~HeavyFlavBaseProducer() = default;
 
+// Define the shared output branches owned by the base producer. Channel
+// producers call this once per output file before the event loop, then add
+// their channel-specific branches on top.
 void HeavyFlavBaseProducer::begin_file() {
   out_.branch("run", std::uint32_t{0});
   out_.branch("luminosityBlock", std::uint32_t{0});
@@ -97,9 +83,11 @@ void HeavyFlavBaseProducer::begin_file() {
   out_.branch("ht", 0.0f);
   out_.branch("met", 0.0f);
   out_.branch("metphi", 0.0f);
-  out_.branch("jetVetoFlag", false);
+  out_.branch("jetVetoFlag", std::int32_t{-99});
   out_.branch("genWeight", 1.0f);
-  out_.branch("LHEScaleWeight", std::vector<float>{});
+  if (config_.include_lhe_weights) {
+    out_.branch("LHEScaleWeight", std::vector<float>{});
+  }
   pu_weight_producer_->begin_file(out_);
   top_pt_weight_producer_->begin_file(out_);
 
@@ -131,146 +119,50 @@ void HeavyFlavBaseProducer::begin_file() {
   }
 }
 
+// Build the explicit input schema from the runtime card. nano_run has already
+// normalized read_branches and resolved each branch type from the NanoAOD
+// catalogue, so this function only de-duplicates and converts that manifest
+// into NanoReader binding specs.
 std::vector<BranchSpec> HeavyFlavBaseProducer::default_schema(const ProducerConfig &config) {
-  std::vector<BranchSpec> specs{
-      {"run", BranchType::kUInt32},
-      {"luminosityBlock", BranchType::kUInt32},
-      {"event", BranchType::kUInt64},
-      {"genWeight", BranchType::kFloat, true},
-      {"Pileup_nTrueInt", BranchType::kFloat, true},
-      {"Flag_goodVertices", BranchType::kBool},
-      {"Flag_globalSuperTightHalo2016Filter", BranchType::kBool},
-      {"Flag_EcalDeadCellTriggerPrimitiveFilter", BranchType::kBool},
-      {"Flag_BadPFMuonFilter", BranchType::kBool},
-      {"Flag_BadPFMuonDzFilter", BranchType::kBool},
-      {"Flag_eeBadScFilter", BranchType::kBool},
-      {"Flag_ecalBadCalibFilter", BranchType::kBool, true},
-      {"Flag_hfNoisyHitsFilter", BranchType::kBool, true},
-      {"Flag_HBHENoiseFilter", BranchType::kBool, true},
-      {"Flag_HBHENoiseIsoFilter", BranchType::kBool, true},
-      {"PuppiMET_pt", BranchType::kFloat},
-      {"PuppiMET_phi", BranchType::kFloat},
-      {"RawPuppiMET_pt", BranchType::kFloat},
-      {"RawPuppiMET_phi", BranchType::kFloat},
-      {"MET_MetUnclustEnUpDeltaX", BranchType::kFloat, true},
-      {"MET_MetUnclustEnUpDeltaY", BranchType::kFloat, true},
-      {"Rho_fixedGridRhoFastjetAll", BranchType::kFloat},
-      {"nLHEScaleWeight", BranchType::kInt32, true},
-      {"LHEScaleWeight", BranchType::kVecFloat, true},
-      {"Muon_pt", BranchType::kVecFloat},
-      {"Muon_eta", BranchType::kVecFloat},
-      {"Muon_phi", BranchType::kVecFloat},
-      {"Muon_mass", BranchType::kVecFloat},
-      {"Muon_dxy", BranchType::kVecFloat},
-      {"Muon_dz", BranchType::kVecFloat},
-      {"Muon_tightId", BranchType::kVecBool},
-      {"Muon_looseId", BranchType::kVecBool},
-      {"Muon_miniPFRelIso_all", BranchType::kVecFloat},
-      {"Electron_pt", BranchType::kVecFloat},
-      {"Electron_eta", BranchType::kVecFloat},
-      {"Electron_phi", BranchType::kVecFloat},
-      {"Electron_mass", BranchType::kVecFloat},
-      {"Electron_dxy", BranchType::kVecFloat},
-      {"Electron_dz", BranchType::kVecFloat},
-      {"Electron_deltaEtaSC", BranchType::kVecFloat},
-      {"Electron_mvaNoIso_WP90", BranchType::kVecBool},
-      {"Electron_miniPFRelIso_all", BranchType::kVecFloat},
-      {"Jet_pt", BranchType::kVecFloat},
-      {"Jet_eta", BranchType::kVecFloat},
-      {"Jet_phi", BranchType::kVecFloat},
-      {"Jet_mass", BranchType::kVecFloat},
-      {"Jet_rawFactor", BranchType::kVecFloat},
-      {"Jet_area", BranchType::kVecFloat},
-      {"Jet_muonSubtrFactor", BranchType::kVecFloat},
-      {"Jet_btagDeepFlavB", BranchType::kVecFloat, true},
-      {"Jet_btagPNetB", BranchType::kVecFloat, true},
-      {"Jet_btagUParTAK4B", BranchType::kVecFloat, true},
-      {"Jet_neHEF", BranchType::kVecFloat},
-      {"Jet_neEmEF", BranchType::kVecFloat},
-      {"Jet_chHEF", BranchType::kVecFloat},
-      {"Jet_muEF", BranchType::kVecFloat},
-      {"Jet_chEmEF", BranchType::kVecFloat},
-      {"Jet_chMultiplicity", BranchType::kVecUInt8},
-      {"Jet_neMultiplicity", BranchType::kVecUInt8},
-      {"Jet_jetId", BranchType::kVecUInt8, true},
-      {"Jet_partonFlavour", BranchType::kVecInt16, true},
-      {"Jet_genJetIdx", BranchType::kVecInt16, true},
-      {"CorrT1METJet_rawPt", BranchType::kVecFloat},
-      {"CorrT1METJet_eta", BranchType::kVecFloat},
-      {"CorrT1METJet_phi", BranchType::kVecFloat},
-      {"CorrT1METJet_area", BranchType::kVecFloat},
-      {"CorrT1METJet_muonSubtrFactor", BranchType::kVecFloat},
-      {"FatJet_pt", BranchType::kVecFloat},
-      {"FatJet_eta", BranchType::kVecFloat},
-      {"FatJet_phi", BranchType::kVecFloat},
-      {"FatJet_mass", BranchType::kVecFloat},
-      {"FatJet_rawFactor", BranchType::kVecFloat},
-      {"FatJet_area", BranchType::kVecFloat},
-      {"FatJet_msoftdrop", BranchType::kVecFloat},
-      {"FatJet_neHEF", BranchType::kVecFloat},
-      {"FatJet_neEmEF", BranchType::kVecFloat},
-      {"FatJet_chHEF", BranchType::kVecFloat},
-      {"FatJet_muEF", BranchType::kVecFloat},
-      {"FatJet_chEmEF", BranchType::kVecFloat},
-      {"FatJet_chMultiplicity", BranchType::kVecInt16},
-      {"FatJet_neMultiplicity", BranchType::kVecInt16},
-      {"FatJet_jetId", BranchType::kVecUInt8, true},
-      {"FatJet_genJetAK8Idx", BranchType::kVecInt16, true},
-      {"FatJet_tau1", BranchType::kVecFloat},
-      {"FatJet_tau2", BranchType::kVecFloat},
-      {"FatJet_tau3", BranchType::kVecFloat},
-      {"FatJet_tau4", BranchType::kVecFloat},
-      {"FatJet_subJetIdx1", BranchType::kVecInt16},
-      {"FatJet_subJetIdx2", BranchType::kVecInt16},
-      {"SubJet_pt", BranchType::kVecFloat},
-      {"SubJet_eta", BranchType::kVecFloat},
-      {"SubJet_phi", BranchType::kVecFloat},
-      {"SubJet_mass", BranchType::kVecFloat},
-      {"SubJet_rawFactor", BranchType::kVecFloat},
-      {"SubJet_btagDeepB", BranchType::kVecFloat, true},
-      {"SubJet_nBHadrons", BranchType::kVecUInt8, true},
-      {"SubJet_nCHadrons", BranchType::kVecUInt8, true},
-      {"SubJet_partonFlavour", BranchType::kVecInt16, true},
-      {"GenJet_pt", BranchType::kVecFloat},
-      {"GenJet_eta", BranchType::kVecFloat},
-      {"GenJet_phi", BranchType::kVecFloat},
-      {"GenJet_mass", BranchType::kVecFloat},
-      {"GenJetAK8_pt", BranchType::kVecFloat},
-      {"GenJetAK8_eta", BranchType::kVecFloat},
-      {"GenJetAK8_phi", BranchType::kVecFloat},
-      {"GenJetAK8_mass", BranchType::kVecFloat},
-      {"GenJetAK8_nBHadrons", BranchType::kVecUInt8, true},
-      {"GenJetAK8_nCHadrons", BranchType::kVecUInt8, true},
-      {"GenJetAK8_partonFlavour", BranchType::kVecInt16, true},
-      {"SubGenJetAK8_pt", BranchType::kVecFloat},
-      {"SubGenJetAK8_eta", BranchType::kVecFloat},
-      {"SubGenJetAK8_phi", BranchType::kVecFloat},
-      {"SubGenJetAK8_mass", BranchType::kVecFloat},
-      {"GenPart_pt", BranchType::kVecFloat, true},
-      {"GenPart_eta", BranchType::kVecFloat, true},
-      {"GenPart_phi", BranchType::kVecFloat, true},
-      {"GenPart_mass", BranchType::kVecFloat, true},
-      {"GenPart_pdgId", BranchType::kVecInt32, true},
-      {"GenPart_status", BranchType::kVecInt32, true},
-      {"GenPart_statusFlags", BranchType::kVecUInt16, true},
-      {"GenPart_genPartIdxMother", BranchType::kVecInt16, true},
+  std::vector<BranchSpec> specs;
+  std::set<std::string> seen;
+  const auto add_branch = [&](const std::string &name, bool optional) {
+    if (!seen.insert(name).second) {
+      return;
+    }
+    const auto it = config.nano_branch_types.find(name);
+    if (it == config.nano_branch_types.end()) {
+      throw std::runtime_error("Branch " + name + " is not listed in nano_branches for " + config.nano_version);
+    }
+    specs.push_back({name, it->second, optional});
   };
 
-  for (const auto &tagger : config.tagger_names) {
-    specs.push_back({"FatJet_" + tagger, BranchType::kVecFloat, true});
-  }
-  for (const auto &trigger : config.required_triggers) {
-    specs.push_back({trigger, BranchType::kBool, true});
+  for (const auto &branch : config.read_branches) {
+    add_branch(branch, true);
   }
   return specs;
 }
 
+// Prepare shared variation-independent objects for downstream channel logic.
+// Loose leptons are used for jet cleaning, and fatjet gen matching is attached
+// once by object index because it depends on eta/phi rather than JME-varied
+// pt/mass.
+void HeavyFlavBaseProducer::prepare_common_objects(Event &event) const {
+  select_leptons(event);
+  auto fatjets = event.collection(fatjet_name_).objects();
+  load_gen_history(event, fatjets);
+}
+
+// Select loose electrons and muons used for lepton counting and jet cleaning.
+// The selected objects are stored on the event as "looseLeptons" for later
+// channel and base-producer steps.
 void HeavyFlavBaseProducer::select_leptons(Event &event) const {
   auto electrons = event.collection("Electron").objects();
+  const auto electron_id = config_.nano_version == "v9" ? "mvaFall17V2noIso_WP90" : "mvaNoIso_WP90";
   std::vector<ObjectView> loose_leptons;
   for (auto &el : electrons) {
     if (el.pt() > 10.0f && std::abs(el.eta()) < 2.5f && std::abs(el.get<float>("dxy")) < 0.05f &&
-        std::abs(el.get<float>("dz")) < 0.2f && el.get<bool>("mvaNoIso_WP90") && el.get<float>("miniPFRelIso_all") < 0.4f) {
+        std::abs(el.get<float>("dz")) < 0.2f && el.get<bool>(electron_id) && el.get<float>("miniPFRelIso_all") < 0.4f) {
       loose_leptons.push_back(el);
     }
   }
@@ -286,11 +178,29 @@ void HeavyFlavBaseProducer::select_leptons(Event &event) const {
   event.set("looseLeptons", sort_by_pt(std::move(loose_leptons)));
 }
 
+// Convenience path for a single nominal JME pass. Multi-variation running uses
+// compute_jme() once and then calls apply_jme_and_select_jets() for each output
+// variation.
 void HeavyFlavBaseProducer::correct_jets_and_met(Event &event) const {
-  jme_corrector_->correct_event(event);
+  const auto jme_result = compute_jme(event);
+  apply_jme_and_select_jets(event, jme_result, JmeVariation::Nominal);
+}
+
+JmeEventResult HeavyFlavBaseProducer::compute_jme(Event &event) const {
+  return jme_corrector_->compute_event(event);
+}
+
+// Apply one JME variation to Jet/FatJet/SubJet/MET, then build the cleaned jet
+// collections used by downstream selection and filling. Fatjet gen-matching
+// extras are attached to the event by object index in analyze_common(), so
+// freshly constructed FatJet handles can still read those common attributes
+// while using the current variation's corrected pt/mass extras.
+void HeavyFlavBaseProducer::apply_jme_and_select_jets(Event &event, const JmeEventResult &jme_result, JmeVariation variation) const {
+  jme_corrector_->apply_event(event, jme_result, variation);
 
   auto fatjets = event.collection(fatjet_name_).objects();
   auto ak4jets = event.collection("Jet").objects();
+  event.set("jetVetoFlag", jme_corrector_->compute_jet_veto_flag(ak4jets));
 
   for (auto &fj : fatjets) {
     fj.set("idx", static_cast<std::int32_t>(fj.index()));
@@ -305,10 +215,10 @@ void HeavyFlavBaseProducer::correct_jets_and_met(Event &event) const {
   }
 
   fatjets = filter_objects(sort_by_pt(std::move(fatjets)), [&](const auto &fj) {
-    return fj.pt() > 200.0f && std::abs(fj.eta()) < 2.4f && pass_v15_jet_id(fj, false);
+    return fj.pt() > 200.0f && std::abs(fj.eta()) < 2.4f && pass_jet_id(fj, config_.nano_version, false);
   });
   ak4jets = filter_objects(sort_by_pt(std::move(ak4jets)), [&](const auto &jet) {
-    return jet.pt() > 25.0f && std::abs(jet.eta()) < 2.4f && pass_v15_jet_id(jet, true); // tight_lep_veto: true
+    return jet.pt() > 25.0f && std::abs(jet.eta()) < 2.4f && pass_jet_id(jet, config_.nano_version, true);
   });
 
   const auto &loose = event.get<std::vector<ObjectView>>("looseLeptons");
@@ -338,10 +248,17 @@ void HeavyFlavBaseProducer::correct_jets_and_met(Event &event) const {
   event.set("ht", ht);
 }
 
+// Attach generator-level matching information to selected fatjets. The helper
+// computes Higgs/W/Z/top matching variables and stores them as derived fatjet
+// attributes that fill_fatjet_info() later writes to output branches.
 void HeavyFlavBaseProducer::load_gen_history(Event &event, std::vector<ObjectView> &fatjets) const {
   fatjet_gen_matching_->process(event, fatjets);
 }
 
+// Reset and fill event-level output shared by all heavy-flavour channels:
+// identifiers, era/lumi labels, MET filters, L1 prefiring, lepton count, HT,
+// corrected MET, generator weight, optional LHE weights, PU weights, and top-pt
+// weights.
 void HeavyFlavBaseProducer::fill_base_event_info(Event &event) {
   out_.reset();
   out_.fill("run", event.scalar<std::uint32_t>("run"));
@@ -365,25 +282,35 @@ void HeavyFlavBaseProducer::fill_base_event_info(Event &event) {
     met_filters = met_filters && safe_bool(event, "Flag_hfNoisyHitsFilter");
   }
   out_.fill("passmetfilters", met_filters);
-  out_.fill("l1PreFiringWeight", 1.0f);
-  out_.fill("l1PreFiringWeightUp", 1.0f);
-  out_.fill("l1PreFiringWeightDown", 1.0f);
+  const bool use_l1_prefiring = event.is_mc() && (config_.era == "2016APV" || config_.era == "2016" || config_.era == "2017");
+  out_.fill("l1PreFiringWeight", use_l1_prefiring ? safe_scalar_float(event, "L1PreFiringWeight_Nom", 1.0f) : 1.0f);
+  out_.fill("l1PreFiringWeightUp", use_l1_prefiring ? safe_scalar_float(event, "L1PreFiringWeight_Up", 1.0f) : 1.0f);
+  out_.fill("l1PreFiringWeightDown", use_l1_prefiring ? safe_scalar_float(event, "L1PreFiringWeight_Dn", 1.0f) : 1.0f);
   out_.fill("nlep", static_cast<std::int32_t>(event.get<std::vector<ObjectView>>("looseLeptons").size()));
   out_.fill("ht", event.get<float>("ht"));
   out_.fill("met", event.get<float>("met_pt"));
   out_.fill("metphi", event.get<float>("met_phi"));
-  out_.fill("jetVetoFlag", false);
+  out_.fill("jetVetoFlag", event.has("jetVetoFlag") ? event.get<std::int32_t>("jetVetoFlag") : std::int32_t{-99});
   out_.fill("genWeight", event.is_mc() ? event.scalar<float>("genWeight") : 1.0f);
-  out_.fill("LHEScaleWeight", event.vector<float>("LHEScaleWeight"));
+  if (config_.include_lhe_weights) {
+    out_.fill("LHEScaleWeight",
+              event.has_physical_branch("LHEScaleWeight") ? event.vector<float>("LHEScaleWeight") : std::vector<float>{});
+  }
   pu_weight_producer_->fill(event, out_);
   top_pt_weight_producer_->fill(event, out_);
 }
 
+// Fill the leading selected fatjet block. Values come from the JME-corrected
+// fatjet and its linked corrected subjets; tagger branches are driven by
+// stored_tagger_names, and gen-matching branches use attributes attached by
+// load_gen_history().
 void HeavyFlavBaseProducer::fill_fatjet_info(Event &event, const std::vector<ObjectView> &fatjets) {
   if (fatjets.empty()) {
     return;
   }
   const auto &fj = fatjets.front();
+  const auto subjets = fj.extra<std::vector<ObjectView>>("subjets");
+
   out_.fill("fj_1_is_qualified", fj.get<bool>("is_qualified"));
   out_.fill("fj_1_pt", fj.pt());
   out_.fill("fj_1_eta", fj.eta());
@@ -397,8 +324,6 @@ void HeavyFlavBaseProducer::fill_fatjet_info(Event &event, const std::vector<Obj
   for (const auto &tagger : config_.tagger_names) {
     out_.fill("fj_1_" + tagger, safe_object_float(fj, tagger, -99.0f));
   }
-
-  const auto subjets = fj.extra<std::vector<ObjectView>>("subjets");
   if (!subjets.empty()) {
     out_.fill("fj_1_sj1_pt", subjets[0].pt());
     out_.fill("fj_1_sj1_eta", subjets[0].eta());

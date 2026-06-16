@@ -1,0 +1,155 @@
+# NanoAODTools.Cpp
+
+NanoAODTools.Cpp is a C++ rewrite of selected [NanoAOD-tools](https://github.com/cms-nanoAOD/nanoAOD-tools)/[NanoHRTTools](https://github.com/hqucms/NanoHRT-tools) workflows.
+
+The goal is to keep the analysis logic human-readable while making the event loop faster and easier to validate. The style is intentionally close to the traditional ROOT event loop:
+
+- read one event
+- build objects
+- apply selections
+- compute new features
+- write a skim tree
+
+The guiding idea is:
+
+> Agents write, you review.
+
+The framework is designed so AI agents can write straightforward C++ while humans can still review the physics logic directly.
+
+## Why This Exists
+
+The original NanoAOD-tools code is Python-based and flexible, but it is not as fast as columnar analysis frameworks such as RDataFrame or coffea. This repository keeps the useful NanoAOD-tools programming model and moves the event processing to C++ for faster ntuplization.
+
+The intended style is explicit event-level code:
+
+```cpp
+auto fatjets = event.collection("FatJet").objects();
+
+for (auto &jet : event.collection("Jet").objects()) {
+  const auto btag = jet.get<float>("btagUParTAK4B");
+  if (jet.pt() > 30.0f && std::abs(jet.eta()) < 2.4f && btag > btag_wp) {
+    bjets.push_back(jet);
+  }
+}
+
+event.set("bjets", bjets);
+event.set("leptonicW", leptonic_w);
+
+for (auto &fj : fatjets) {
+  fj.set("subjets", linked_subjets);
+  fj.set("dr_T", delta_r_to_top);
+  fj.set("is_qualified", true);
+}
+```
+
+In practice this means:
+
+- Object collections are accessed from the event, for example `event.collection("FatJet")`.
+- NanoAOD branches are accessed as typed object attributes, for example `fj.get<float>("msoftdrop")`.
+- New event-level values can be attached to `event`, for example selected muons, corrected MET, or the reconstructed W candidate.
+- New object-level features can be attached to each object, for example corrected four-vectors, linked subjets, or gen-matching labels on a fatjet.
+- Channel producers are plain C++ event loops.
+- A YAML card in `configs/run/` contains all information to guide the run.
+- Corrections use modern correctionlib payloads where possible. JEC and MET corrections build on the CMSJMECalculators project.
+
+## Current Scope
+
+The implemented channel is:
+
+- `muon`: a heavy-flavour muon control region targeting semileptonic ttbar-like phase space, enriched in boosted top/W jets.
+
+Main files:
+
+- `app/nano_run.cpp`: local runner.
+- `app/nano_make_condor.cpp`: Condor submission builder.
+- `configs/run/`: runnable YAML cards.
+- `configs/samples/`: dataset YAML files for batch submission.
+
+For framework details, read `docs/framework-structure.md`.
+
+## Build the Project
+
+Use the ROOT/LCG runtime before configuring, building, or running:
+
+```bash
+source /cvmfs/sft.cern.ch/lcg/views/LCG_108/x86_64-el9-gcc13-opt/setup.sh
+```
+
+Build:
+
+```bash
+cmake -S . -B build
+cmake --build build -j
+```
+
+## Run One Input
+
+Example using a local validation file:
+
+```bash
+build/nano_run \
+  --input-files tests/data/muon_validation/inputs/ttbarsl_2018_nanov9_example.root \
+  --output-file run/muon_2018_test.root \
+  --config configs/run/muon_2018_v9.yaml \
+  --channel muon \
+  --num-events 5000
+```
+
+`--input-files` accepts one file or a comma-separated list. Local paths, `root://...` paths, and `/store/...` paths are supported.
+
+Useful options:
+
+```bash
+--tree-name Events
+--set output.include_lhe_weights=true
+--variations all
+```
+
+`--variations all` writes the nominal and JME variation outputs in one event loop.
+
+## Run Validation
+
+```bash
+ctest --test-dir build -R muon_validation --output-on-failure
+```
+
+The validation report is written to:
+
+```text
+build/test-muon-validation/key_branch_compare_report.txt
+```
+
+## Make Condor Jobs
+
+Create a Condor work directory from a sample YAML:
+
+```bash
+build/nano_make_condor \
+  --input-yaml configs/samples/muon_2018_v9_samples.yaml \
+  --output-dir /path/to/output \
+  --config configs/run/muon_2018_v9.yaml \
+  --channel muon \
+  --nfiles-per-job 5 \
+  --num-events -1
+```
+
+This creates a directory under `run/`, copies a merged config snapshot, packs the repository, and writes `submit.jdl`.
+
+Submit manually:
+
+```bash
+cd run/condor_muon_2018_<pid>
+condor_submit submit.jdl
+```
+
+Each job runs `process.sh`, unpacks the repository, builds it if needed, prints the full `nano_run` command, and writes one ROOT piece under:
+
+```text
+<output-dir>/pieces/
+```
+
+## Adding Channels
+
+Follow `docs/create-new-channel.md`.
+
+The intended workflow is that you define the physics purpose and review the logic, while agents help write a new channel by following the existing producer pattern.

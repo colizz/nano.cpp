@@ -1,0 +1,161 @@
+# Muon channel runtime card for 2016 v9.
+#
+# `read_branches` is the complete physical input branch list used by
+# this channel before trigger/LHE dynamic additions. Branch types are
+# resolved from configs/branches/*.yaml by nano_run.
+
+extends: ../base.yaml
+
+era: "2016"
+nano_version: "v9"
+
+required_triggers:
+  - HLT_Mu50
+  - HLT_TkMu50
+
+stored_tagger_names:
+  - btagCSVV2
+  - btagDDBvLV2
+  - btagDDCvBV2
+  - btagDDCvLV2
+  - btagDeepB
+  - btagHbb
+  - deepTagMD_H4qvsQCD
+  - deepTagMD_HbbvsQCD
+  - deepTagMD_TvsQCD
+  - deepTagMD_WvsQCD
+  - deepTagMD_ZHbbvsQCD
+  - deepTagMD_ZHccvsQCD
+  - deepTagMD_ZbbvsQCD
+  - deepTagMD_ZvsQCD
+  - deepTagMD_bbvsLight
+  - deepTagMD_ccvsLight
+  - particleNetMD_QCD
+  - particleNetMD_Xbb
+  - particleNetMD_Xcc
+  - particleNetMD_Xqq
+  - particleNet_H4qvsQCD
+  - particleNet_HbbvsQCD
+  - particleNet_HccvsQCD
+  - particleNet_QCD
+  - particleNet_TvsQCD
+  - particleNet_WvsQCD
+  - particleNet_ZvsQCD
+  - particleNet_mass
+
+read_branches:
+  - run
+  - luminosityBlock
+  - event
+  - genWeight
+  - Pileup_nTrueInt
+  - Flag_goodVertices
+  - Flag_globalSuperTightHalo2016Filter
+  - Flag_EcalDeadCellTriggerPrimitiveFilter
+  - Flag_BadPFMuonFilter
+  - Flag_BadPFMuonDzFilter
+  - Flag_eeBadScFilter
+  - Flag_ecalBadCalibFilter
+  - Flag_hfNoisyHitsFilter
+  - Flag_HBHENoiseFilter
+  - Flag_HBHENoiseIsoFilter
+  - PuppiMET_pt
+  - PuppiMET_phi
+  - RawPuppiMET_pt
+  - RawPuppiMET_phi
+  - MET_pt
+  - MET_phi
+  - RawMET_pt
+  - RawMET_phi
+  - MET_MetUnclustEnUpDeltaX
+  - MET_MetUnclustEnUpDeltaY
+  - fixedGridRhoFastjetAll
+  - L1PreFiringWeight_Nom
+  - L1PreFiringWeight_Up
+  - L1PreFiringWeight_Dn
+  - Muon_pt
+  - Muon_eta
+  - Muon_phi
+  - Muon_mass
+  - Muon_dxy
+  - Muon_dz
+  - Muon_tightId
+  - Muon_looseId
+  - Muon_miniPFRelIso_all
+  - Electron_pt
+  - Electron_eta
+  - Electron_phi
+  - Electron_mass
+  - Electron_dxy
+  - Electron_dz
+  - Electron_deltaEtaSC
+  - Electron_mvaFall17V2noIso_WP90
+  - Electron_miniPFRelIso_all
+  - Jet_pt
+  - Jet_eta
+  - Jet_phi
+  - Jet_mass
+  - Jet_rawFactor
+  - Jet_area
+  - Jet_muonSubtrFactor
+  - Jet_btagDeepFlavB
+  - Jet_neHEF
+  - Jet_neEmEF
+  - Jet_chHEF
+  - Jet_muEF
+  - Jet_chEmEF
+  - Jet_jetId
+  - Jet_partonFlavour
+  - Jet_genJetIdx
+  - CorrT1METJet_rawPt
+  - CorrT1METJet_eta
+  - CorrT1METJet_phi
+  - CorrT1METJet_area
+  - CorrT1METJet_muonSubtrFactor
+  - FatJet_pt
+  - FatJet_eta
+  - FatJet_phi
+  - FatJet_mass
+  - FatJet_rawFactor
+  - FatJet_area
+  - FatJet_msoftdrop
+  - FatJet_jetId
+  - FatJet_genJetAK8Idx
+  - FatJet_nBHadrons
+  - FatJet_nCHadrons
+  - FatJet_hadronFlavour
+  - FatJet_tau1
+  - FatJet_tau2
+  - FatJet_tau3
+  - FatJet_tau4
+  - FatJet_subJetIdx1
+  - FatJet_subJetIdx2
+  - SubJet_pt
+  - SubJet_eta
+  - SubJet_phi
+  - SubJet_mass
+  - SubJet_rawFactor
+  - SubJet_btagDeepB
+  - SubJet_nBHadrons
+  - SubJet_nCHadrons
+  - GenJet_pt
+  - GenJet_eta
+  - GenJet_phi
+  - GenJet_mass
+  - GenJetAK8_pt
+  - GenJetAK8_eta
+  - GenJetAK8_phi
+  - GenJetAK8_mass
+  - GenJetAK8_partonFlavour
+  - SubGenJetAK8_pt
+  - SubGenJetAK8_eta
+  - SubGenJetAK8_phi
+  - SubGenJetAK8_mass
+  - GenPart_pt
+  - GenPart_eta
+  - GenPart_phi
+  - GenPart_mass
+  - GenPart_pdgId
+  - GenPart_status
+  - GenPart_statusFlags
+  - GenPart_genPartIdxMother

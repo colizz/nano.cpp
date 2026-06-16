@@ -9,7 +9,7 @@ Add one new producer with minimal framework churn and with enough file-level doc
 1. Start from the Python reference producer and list the exact event flow in order.
 2. Implement channel-specific logic in `src/producers/<NewChannel>.cpp`.
 3. Reuse shared services from `HeavyFlavBaseProducer` or `src/helpers/` whenever the logic is not channel-specific.
-4. Extend `HeavyFlavBaseProducer::default_schema()` only with branches that the new channel actually reads.
+4. Add only the branches the channel reads to the runtime card's `read_branches`.
 5. Add or update YAML config instead of hard-coding campaign-dependent constants.
 6. Add at least one executable validation path, usually a smoke test.
 
@@ -18,7 +18,7 @@ Add one new producer with minimal framework churn and with enough file-level doc
 - Channel cuts, channel-only output branches, and channel intent: the channel producer.
 - Reusable computations shared across channels: `src/helpers/`.
 - Event/object utilities with no physics ownership: `src/core/`.
-- Era, campaign, trigger, tagger, b-tag, and similar run configuration: YAML.
+- Era, campaign, trigger, stored taggers, input branch manifests, b-tag, and similar run configuration: YAML.
 
 ## Header comment required in every new channel `.cpp`
 
@@ -47,5 +47,5 @@ The comment should let a human reviewer answer two questions quickly:
 - New producer is wired into the runner.
 - Required config card exists.
 - Channel file has the required header comment.
-- Input schema matches the branches actually read.
+- Runtime card `read_branches` matches the branches actually read.
 - A smoke test or equivalent small regression runs successfully.

@@ -10,6 +10,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace nano {
@@ -19,11 +20,13 @@ public:
   // The reader binds only the explicitly declared branches and exposes them
   // through a stable typed interface to the analysis layer.
   NanoReader(std::string ntuple_name, std::string file_name, BranchSchema schema);
+  NanoReader(TTree &tree, BranchSchema schema);
 
   void load(std::size_t entry);
   std::size_t entries() const;
 
   const BranchSchema &schema() const { return schema_; }
+  bool has_physical_branch(std::string_view branch_name) const;
   const FieldPtr &field(std::string_view branch_name) const;
 
   struct BranchLoader {
@@ -39,6 +42,7 @@ private:
   TTree *tree_ = nullptr;
   std::unique_ptr<TTreeReader> reader_;
   std::unordered_map<std::string, FieldPtr> fields_;
+  std::unordered_set<std::string> physical_branches_;
   std::vector<std::unique_ptr<BranchLoader>> loaders_;
 
   void bind_branches();

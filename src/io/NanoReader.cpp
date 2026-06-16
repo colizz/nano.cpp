@@ -70,8 +70,16 @@ NanoReader::NanoReader(std::string ntuple_name, std::string file_name, BranchSch
   bind_branches();
 }
 
+NanoReader::NanoReader(TTree &tree, BranchSchema schema) : ntuple_name_(tree.GetName()), schema_(std::move(schema)), tree_(&tree) {
+  reader_ = std::make_unique<TTreeReader>(tree_);
+  bind_branches();
+}
+
 void NanoReader::bind_branches() {
   for (const auto &spec : schema_.specs()) {
+    if (tree_->GetBranch(spec.name.c_str())) {
+      physical_branches_.insert(spec.name);
+    }
     if (!tree_->GetBranch(spec.name.c_str())) {
       if (spec.optional) {
         switch (spec.type) {
@@ -183,6 +191,10 @@ void NanoReader::load(std::size_t entry) {
 
 std::size_t NanoReader::entries() const {
   return static_cast<std::size_t>(tree_->GetEntries());
+}
+
+bool NanoReader::has_physical_branch(std::string_view branch_name) const {
+  return physical_branches_.count(std::string(branch_name)) > 0U;
 }
 
 const FieldPtr &NanoReader::field(std::string_view branch_name) const {

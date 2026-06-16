@@ -6,17 +6,28 @@
 #
 # Override order:
 # 1. `base.yaml`
-# 2. channel/year card such as `muon_2024.yaml`
+# 2. runtime card such as `run/muon_2024_v15.yaml`
 # 3. command-line `--set key=value` options
 #
 # Supported `--set` syntax uses dot-separated keys. Example:
 #   --set selections.muon='nFatJet>0'
-#   --set btag.V15.2024.medium=0.13
+#   --set btag.v15.2024.medium=0.13
+
+extends: branches/all.yaml
 
 # Preselection strings applied before constructing the event loop. These are
 # ROOT selection expressions and should stay compatible with `TTree::Draw`.
 selections:
   muon: Sum$(Muon_pt>55 && abs(Muon_eta)<2.4 && Muon_tightId && Muon_miniPFRelIso_all<0.10)>0 && nFatJet>0
+
+# Output-level optional branches. Keep large vector branches disabled by
+# default and enable them in a channel card or with `--set` when needed.
+output:
+  # Copy the input `LHEScaleWeight` vector into nominal output. This is useful
+  # for MC validation or scale-envelope studies. If enabled for data or an input
+  # without the branch, the output branch is present and filled with an empty
+  # vector.
+  include_lhe_weights: false
 
 # Shared JME payload root. Era-specific payload subdirectories are appended to
 # this base path.
@@ -26,91 +37,252 @@ jec:
   # Correctionlib JSON used by CMSJMECalculators for JER smearing.
   jer_smear_json: /cvmfs/cms-griddata.cern.ch/cat/metadata/JME/JER-Smearing/latest/jer_smear.json.gz
 
-  # Era-dependent JEC/JER setup. Supported eras currently match the original
-  # Python configuration.
-  eras:
-    2016APV:
-      payload_prefix: Run2-2016preVFP-UL-
-      jet_jec_tag_mc: Summer19UL16APV_V7_MC
-      fatjet_jec_tag_mc: Summer19UL16APV_V7_MC
-      jer_tag_mc: Summer20UL16APV_JRV3_MC
+  # Runtime JME systematic choice. Empty strings mean nominal.
+  systematics:
+    jes: ""
+    jer: "nominal"
+    met_unclustered: ""
+    smear_met: false
+
+  # JME payload setup keyed by era plus NanoAOD version. `payload_subdir`
+  # is the final subdirectory under `payload_dir`; local paths such as
+  # `data/jme-derived/...` are resolved relative to the repository root.
+  #
+  # `jer_tag_mc: inherit` on fatjet/subjet means use `jet.jer_tag_mc`.
+  # `jer_tag_mc: none` means do not apply JER smearing for that object.
+  campaigns:
+    2016APV_NanoAODv9:
+      payload_subdir: Run2-2016preVFP-UL-NanoAODv9
+      jet_jerc_file: jet_jerc.json.gz
+      fatjet_jerc_file: fatJet_jerc.json.gz
       met_xy_corr_era: ""
-      data_tags:
-        - { run_start: 0, tag: Summer19UL16APV_RunBCD_V7_DATA }
-        - { run_start: 276831, tag: Summer19UL16APV_RunEF_V7_DATA }
-    2016:
-      payload_prefix: Run2-2016postVFP-UL-
-      jet_jec_tag_mc: Summer19UL16_V7_MC
-      fatjet_jec_tag_mc: Summer19UL16_V7_MC
-      jer_tag_mc: Summer20UL16_JRV3_MC
+      jes_uncertainties: [Total]
+      jet:
+        algo: AK4PFchs
+        jec_tag_mc: Summer19UL16APV_V7_MC
+        jec_tag_data: Summer19UL16APV_V7_DATA
+        jer_tag_mc: Summer20UL16APV_JRV5_MC
+      fatjet:
+        algo: AK8PFPuppi
+        jec_tag_mc: Summer19UL16APV_V7_MC
+        jec_tag_data: Summer19UL16APV_V7_DATA
+        jer_tag_mc: inherit
+      subjet:
+        # Derived from legacy JME txt tarballs because official Run2 NanoAODv9
+        # correctionlib payloads do not provide AK4PFPuppi subjet JEC.
+        payload_subdir: data/jme-derived/Run2-2016preVFP-UL-NanoAODv9
+        jerc_file: jet_jerc.json.gz
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer19UL16APV_V7_MC
+        jec_tag_data: Summer19UL16APV_RunBCD_V7_DATA
+        jer_tag_mc: Summer20UL16APV_JRV3_MC
+    2016_NanoAODv9:
+      payload_subdir: Run2-2016postVFP-UL-NanoAODv9
+      jet_jerc_file: jet_jerc.json.gz
+      fatjet_jerc_file: fatJet_jerc.json.gz
       met_xy_corr_era: ""
-      data_tags:
-        - { run_start: 0, tag: Summer19UL16_RunFGH_V7_DATA }
-    2017:
-      payload_prefix: Run2-2017-UL-
-      jet_jec_tag_mc: Summer19UL17_V5_MC
-      fatjet_jec_tag_mc: Summer19UL17_V5_MC
-      jer_tag_mc: Summer19UL17_JRV2_MC
+      jes_uncertainties: [Total]
+      jet:
+        algo: AK4PFchs
+        jec_tag_mc: Summer19UL16_V7_MC
+        jec_tag_data: Summer19UL16_V7_DATA
+        jer_tag_mc: Summer20UL16_JRV5_MC
+      fatjet:
+        algo: AK8PFPuppi
+        jec_tag_mc: Summer19UL16_V7_MC
+        jec_tag_data: Summer19UL16_V7_DATA
+        jer_tag_mc: inherit
+      subjet:
+        # Derived from legacy JME txt tarballs because official Run2 NanoAODv9
+        # correctionlib payloads do not provide AK4PFPuppi subjet JEC.
+        payload_subdir: data/jme-derived/Run2-2016postVFP-UL-NanoAODv9
+        jerc_file: jet_jerc.json.gz
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer19UL16_V7_MC
+        jec_tag_data: Summer19UL16_RunFGH_V7_DATA
+        jer_tag_mc: Summer20UL16_JRV3_MC
+    2017_NanoAODv9:
+      payload_subdir: Run2-2017-UL-NanoAODv9
+      jet_jerc_file: jet_jerc.json.gz
+      fatjet_jerc_file: fatJet_jerc.json.gz
       met_xy_corr_era: ""
-      data_tags:
-        - { run_start: 0, tag: Summer19UL17_RunB_V5_DATA }
-        - { run_start: 299337, tag: Summer19UL17_RunC_V5_DATA }
-        - { run_start: 302030, tag: Summer19UL17_RunD_V5_DATA }
-        - { run_start: 303435, tag: Summer19UL17_RunE_V5_DATA }
-        - { run_start: 304911, tag: Summer19UL17_RunF_V5_DATA }
-    2018:
-      payload_prefix: Run2-2018-UL-
-      jet_jec_tag_mc: Summer19UL18_V5_MC
-      fatjet_jec_tag_mc: Summer19UL18_V5_MC
-      jer_tag_mc: Summer19UL18_JRV2_MC
+      jes_uncertainties: [Total]
+      jet:
+        algo: AK4PFchs
+        jec_tag_mc: Summer19UL17_V5_MC
+        jec_tag_data: Summer19UL17_V5_DATA
+        jer_tag_mc: Summer19UL17_JRV4_MC
+      fatjet:
+        algo: AK8PFPuppi
+        jec_tag_mc: Summer19UL17_V5_MC
+        jec_tag_data: Summer19UL17_V5_DATA
+        jer_tag_mc: inherit
+      subjet:
+        # Derived from legacy JME txt tarballs because official Run2 NanoAODv9
+        # correctionlib payloads do not provide AK4PFPuppi subjet JEC.
+        payload_subdir: data/jme-derived/Run2-2017-UL-NanoAODv9
+        jerc_file: jet_jerc.json.gz
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer19UL17_V5_MC
+        jec_tag_data: Summer19UL17_RunB_V5_DATA
+        jer_tag_mc: none
+    2018_NanoAODv9:
+      payload_subdir: Run2-2018-UL-NanoAODv9
+      jet_jerc_file: jet_jerc.json.gz
+      fatjet_jerc_file: fatJet_jerc.json.gz
       met_xy_corr_era: ""
-      data_tags:
-        - { run_start: 0, tag: Summer19UL18_RunA_V5_DATA }
-        - { run_start: 316998, tag: Summer19UL18_RunB_V5_DATA }
-        - { run_start: 319313, tag: Summer19UL18_RunC_V5_DATA }
-        - { run_start: 320394, tag: Summer19UL18_RunD_V5_DATA }
-    2022:
-      payload_prefix: Run3-22CDSep23-Summer22-
-      jet_jec_tag_mc: Summer22_22Sep2023_V3_MC
-      fatjet_jec_tag_mc: Summer22_22Sep2023_V3_MC
-      jer_tag_mc: Summer22_22Sep2023_JRV1_MC
+      jes_uncertainties: [Total]
+      jet:
+        algo: AK4PFchs
+        jec_tag_mc: Summer19UL18_V5_MC
+        jec_tag_data: Summer19UL18_V5_DATA
+        jer_tag_mc: Summer19UL18_JRV3_MC
+      fatjet:
+        algo: AK8PFPuppi
+        jec_tag_mc: Summer19UL18_V5_MC
+        jec_tag_data: Summer19UL18_V5_DATA
+        jer_tag_mc: inherit
+      subjet:
+        # Derived from legacy JME txt tarballs because official Run2 NanoAODv9
+        # correctionlib payloads do not provide AK4PFPuppi subjet JEC.
+        payload_subdir: data/jme-derived/Run2-2018-UL-NanoAODv9
+        jerc_file: jet_jerc.json.gz
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer19UL18_V5_MC
+        jec_tag_data: Summer19UL18_RunA_V5_DATA
+        jer_tag_mc: Summer19UL18_JRV2_MC
+    2022_NanoAODv12:
+      payload_subdir: Run3-22CDSep23-Summer22-NanoAODv12
+      jet_jerc_file: jet_jerc.json.gz
+      fatjet_jerc_file: fatJet_jerc.json.gz
       met_xy_corr_era: "2022"
-      data_tags:
-        - { run_start: 0, tag: Summer22_22Sep2023_RunCD_V3_DATA }
-    2022EE:
-      payload_prefix: Run3-22EFGSep23-Summer22EE-
-      jet_jec_tag_mc: Summer22EE_22Sep2023_V3_MC
-      fatjet_jec_tag_mc: Summer22EE_22Sep2023_V3_MC
-      jer_tag_mc: Summer22EE_22Sep2023_JRV1_MC
+      jes_uncertainties: [Total]
+      jet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer22_22Sep2023_V4_MC
+        jec_tag_data: Summer22_22Sep2023_V4_DATA
+        jer_tag_mc: Summer22_22Sep2023_JRV2_MC
+      fatjet:
+        algo: AK8PFPuppi
+        jec_tag_mc: Summer22_22Sep2023_V4_MC
+        jec_tag_data: Summer22_22Sep2023_V4_DATA
+        jer_tag_mc: inherit
+      subjet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer22_22Sep2023_V4_MC
+        jec_tag_data: Summer22_22Sep2023_V4_DATA
+        jer_tag_mc: inherit
+    2022EE_NanoAODv12:
+      payload_subdir: Run3-22EFGSep23-Summer22EE-NanoAODv12
+      jet_jerc_file: jet_jerc.json.gz
+      fatjet_jerc_file: fatJet_jerc.json.gz
       met_xy_corr_era: "2022EE"
-      data_tags:
-        - { run_start: 0, tag: Summer22EE_22Sep2023_RunE_V3_DATA }
-        - { run_start: 360332, tag: Summer22EE_22Sep2023_RunF_V3_DATA }
-        - { run_start: 362350, tag: Summer22EE_22Sep2023_RunG_V3_DATA }
-    2023:
-      payload_prefix: Run3-23CSep23-Summer23-
-      jet_jec_tag_mc: Summer23Prompt23_V2_MC
-      fatjet_jec_tag_mc: Summer23Prompt23_V2_MC
-      jer_tag_mc: Summer23Prompt23_RunCv1234_JRV1_MC
+      jes_uncertainties: [Total]
+      jet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer22EE_22Sep2023_V4_MC
+        jec_tag_data: Summer22EE_22Sep2023_V4_DATA
+        jer_tag_mc: Summer22EE_22Sep2023_JRV2_MC
+      fatjet:
+        algo: AK8PFPuppi
+        jec_tag_mc: Summer22EE_22Sep2023_V4_MC
+        jec_tag_data: Summer22EE_22Sep2023_V4_DATA
+        jer_tag_mc: inherit
+      subjet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer22EE_22Sep2023_V4_MC
+        jec_tag_data: Summer22EE_22Sep2023_V4_DATA
+        jer_tag_mc: inherit
+    2023_NanoAODv12:
+      payload_subdir: Run3-23CSep23-Summer23-NanoAODv12
+      jet_jerc_file: jet_jerc.json.gz
+      fatjet_jerc_file: fatJet_jerc.json.gz
       met_xy_corr_era: "2023"
-      data_tags:
-        - { run_start: 0, tag: Summer23Prompt23_V2_DATA }
-    2023BPix:
-      payload_prefix: Run3-23DSep23-Summer23BPix-
-      jet_jec_tag_mc: Summer23BPixPrompt23_V3_MC
-      fatjet_jec_tag_mc: Summer23BPixPrompt23_V3_MC
-      jer_tag_mc: Summer23BPixPrompt23_RunD_JRV1_MC
+      jes_uncertainties: [Total]
+      jet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer23Prompt23_V4_MC
+        jec_tag_data: Summer23Prompt23_V4_DATA
+        jer_tag_mc: Summer23Prompt23_RunCv1234_JRV2_MC
+      fatjet:
+        algo: AK8PFPuppi
+        jec_tag_mc: Summer23Prompt23_V4_MC
+        jec_tag_data: Summer23Prompt23_V4_DATA
+        jer_tag_mc: inherit
+      subjet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer23Prompt23_V4_MC
+        jec_tag_data: Summer23Prompt23_V4_DATA
+        jer_tag_mc: inherit
+    2023BPix_NanoAODv12:
+      payload_subdir: Run3-23DSep23-Summer23BPix-NanoAODv12
+      jet_jerc_file: jet_jerc.json.gz
+      fatjet_jerc_file: fatJet_jerc.json.gz
       met_xy_corr_era: "2023BPix"
-      data_tags:
-        - { run_start: 0, tag: Summer23BPixPrompt23_V3_DATA }
-    2024:
-      payload_prefix: Run3-24CDEReprocessingFGHIPrompt-Summer24-
-      jet_jec_tag_mc: Summer24Prompt24_V2_MC
-      fatjet_jec_tag_mc: Summer24Prompt24_V2_MC
-      jer_tag_mc: Summer23BPixPrompt23_RunD_JRV1_MC
+      jes_uncertainties: [Total]
+      jet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer23BPixPrompt23_V4_MC
+        jec_tag_data: Summer23BPixPrompt23_V4_DATA
+        jer_tag_mc: Summer23BPixPrompt23_RunD_JRV2_MC
+      fatjet:
+        algo: AK8PFPuppi
+        jec_tag_mc: Summer23BPixPrompt23_V4_MC
+        jec_tag_data: Summer23BPixPrompt23_V4_DATA
+        jer_tag_mc: inherit
+      subjet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer23BPixPrompt23_V4_MC
+        jec_tag_data: Summer23BPixPrompt23_V4_DATA
+        jer_tag_mc: inherit
+    2024_NanoAODv15:
+      payload_subdir: Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15
+      jet_jerc_file: jet_jerc.json.gz
+      fatjet_jerc_file: fatJet_jerc.json.gz
       met_xy_corr_era: ""
-      data_tags:
-        - { run_start: 0, tag: Summer24Prompt24_V2_DATA }
+      jes_uncertainties: [Total]
+      jet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer24Prompt24_V3_MC
+        jec_tag_data: Summer24Prompt24_V3_DATA
+        jer_tag_mc: Summer24Prompt24_JRV1_MC
+      fatjet:
+        algo: AK8PFPuppi
+        jec_tag_mc: Summer24Prompt24_V3_MC
+        jec_tag_data: Summer24Prompt24_V3_DATA
+        jer_tag_mc: inherit
+      subjet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer24Prompt24_V3_MC
+        jec_tag_data: Summer24Prompt24_V3_DATA
+        jer_tag_mc: inherit
+
+# Event-level jet veto map. The C++ producer only evaluates this for Run 3
+# and later eras; Run 2 outputs a dummy value of -99 by construction. `type`
+# is the correctionlib categorical input and `jetvetomap` is the standard
+# recommended map. The output branch convention is: 1 means at least one
+# selected corrected AK4 jet falls in the veto region, 0 means no such jet, and
+# -99 means the map was intentionally not evaluated.
+jet_veto_map:
+  enabled: true
+  payload_dir: /cvmfs/cms-griddata.cern.ch/cat/metadata/JME
+  type: jetvetomap
+  campaigns:
+    2022_NanoAODv12:
+      payload_subdir: Run3-22CDSep23-Summer22-NanoAODv12/latest/jetvetomaps.json.gz
+      correction: Summer22_23Sep2023_RunCD_V1
+    2022EE_NanoAODv12:
+      payload_subdir: Run3-22EFGSep23-Summer22EE-NanoAODv12/latest/jetvetomaps.json.gz
+      correction: Summer22EE_23Sep2023_RunEFG_V1
+    2023_NanoAODv12:
+      payload_subdir: Run3-23CSep23-Summer23-NanoAODv12/latest/jetvetomaps.json.gz
+      correction: Summer23Prompt23_RunC_V1
+    2023BPix_NanoAODv12:
+      payload_subdir: Run3-23DSep23-Summer23BPix-NanoAODv12/latest/jetvetomaps.json.gz
+      correction: Summer23BPixPrompt23_RunD_V1
+    2024_NanoAODv15:
+      payload_subdir: Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/jetvetomaps.json.gz
+      correction: Summer24Prompt24_RunBCDEFGHI_V1
 
 # Pileup reweighting configuration, fully correctionlib-based.
 pu:
@@ -170,265 +342,10 @@ lumi_values:
   2023BPix: 9.693
   2024: 108.96
 
-# Tagger branches to copy from NanoAOD. These are grouped first by NanoAOD
-# version and then by supported data-taking era. In the current reference
-# Python implementation the list is version-dependent but not year-dependent;
-# we still keep the year layer here so the YAML shape matches the b-tag setup
-# and future year-specific customisation is straightforward.
-tagger_names:
-  V9:
-    2016APV:
-      - btagCSVV2
-      - btagDDBvLV2
-      - btagDDCvBV2
-      - btagDDCvLV2
-      - btagDeepB
-      - btagHbb
-      - deepTagMD_H4qvsQCD
-      - deepTagMD_HbbvsQCD
-      - deepTagMD_TvsQCD
-      - deepTagMD_WvsQCD
-      - deepTagMD_ZHbbvsQCD
-      - deepTagMD_ZHccvsQCD
-      - deepTagMD_ZbbvsQCD
-      - deepTagMD_ZvsQCD
-      - deepTagMD_bbvsLight
-      - deepTagMD_ccvsLight
-      - particleNetMD_QCD
-      - particleNetMD_Xbb
-      - particleNetMD_Xcc
-      - particleNetMD_Xqq
-      - particleNet_H4qvsQCD
-      - particleNet_HbbvsQCD
-      - particleNet_HccvsQCD
-      - particleNet_QCD
-      - particleNet_TvsQCD
-      - particleNet_WvsQCD
-      - particleNet_ZvsQCD
-      - particleNet_mass
-    2016:
-      - btagCSVV2
-      - btagDDBvLV2
-      - btagDDCvBV2
-      - btagDDCvLV2
-      - btagDeepB
-      - btagHbb
-      - deepTagMD_H4qvsQCD
-      - deepTagMD_HbbvsQCD
-      - deepTagMD_TvsQCD
-      - deepTagMD_WvsQCD
-      - deepTagMD_ZHbbvsQCD
-      - deepTagMD_ZHccvsQCD
-      - deepTagMD_ZbbvsQCD
-      - deepTagMD_ZvsQCD
-      - deepTagMD_bbvsLight
-      - deepTagMD_ccvsLight
-      - particleNetMD_QCD
-      - particleNetMD_Xbb
-      - particleNetMD_Xcc
-      - particleNetMD_Xqq
-      - particleNet_H4qvsQCD
-      - particleNet_HbbvsQCD
-      - particleNet_HccvsQCD
-      - particleNet_QCD
-      - particleNet_TvsQCD
-      - particleNet_WvsQCD
-      - particleNet_ZvsQCD
-      - particleNet_mass
-    2017:
-      - btagCSVV2
-      - btagDDBvLV2
-      - btagDDCvBV2
-      - btagDDCvLV2
-      - btagDeepB
-      - btagHbb
-      - deepTagMD_H4qvsQCD
-      - deepTagMD_HbbvsQCD
-      - deepTagMD_TvsQCD
-      - deepTagMD_WvsQCD
-      - deepTagMD_ZHbbvsQCD
-      - deepTagMD_ZHccvsQCD
-      - deepTagMD_ZbbvsQCD
-      - deepTagMD_ZvsQCD
-      - deepTagMD_bbvsLight
-      - deepTagMD_ccvsLight
-      - particleNetMD_QCD
-      - particleNetMD_Xbb
-      - particleNetMD_Xcc
-      - particleNetMD_Xqq
-      - particleNet_H4qvsQCD
-      - particleNet_HbbvsQCD
-      - particleNet_HccvsQCD
-      - particleNet_QCD
-      - particleNet_TvsQCD
-      - particleNet_WvsQCD
-      - particleNet_ZvsQCD
-      - particleNet_mass
-    2018:
-      - btagCSVV2
-      - btagDDBvLV2
-      - btagDDCvBV2
-      - btagDDCvLV2
-      - btagDeepB
-      - btagHbb
-      - deepTagMD_H4qvsQCD
-      - deepTagMD_HbbvsQCD
-      - deepTagMD_TvsQCD
-      - deepTagMD_WvsQCD
-      - deepTagMD_ZHbbvsQCD
-      - deepTagMD_ZHccvsQCD
-      - deepTagMD_ZbbvsQCD
-      - deepTagMD_ZvsQCD
-      - deepTagMD_bbvsLight
-      - deepTagMD_ccvsLight
-      - particleNetMD_QCD
-      - particleNetMD_Xbb
-      - particleNetMD_Xcc
-      - particleNetMD_Xqq
-      - particleNet_H4qvsQCD
-      - particleNet_HbbvsQCD
-      - particleNet_HccvsQCD
-      - particleNet_QCD
-      - particleNet_TvsQCD
-      - particleNet_WvsQCD
-      - particleNet_ZvsQCD
-      - particleNet_mass
-  V12:
-    2022:
-      - particleNetWithMass_H4qvsQCD
-      - particleNetWithMass_HbbvsQCD
-      - particleNetWithMass_HccvsQCD
-      - particleNetWithMass_QCD
-      - particleNetWithMass_TvsQCD
-      - particleNetWithMass_WvsQCD
-      - particleNetWithMass_ZvsQCD
-      - particleNet_QCD
-      - particleNet_QCD0HF
-      - particleNet_QCD1HF
-      - particleNet_QCD2HF
-      - particleNet_XbbVsQCD
-      - particleNet_XccVsQCD
-      - particleNet_XggVsQCD
-      - particleNet_XqqVsQCD
-      - particleNet_XteVsQCD
-      - particleNet_XtmVsQCD
-      - particleNet_XttVsQCD
-      - particleNet_massCorr
-    2022EE:
-      - particleNetWithMass_H4qvsQCD
-      - particleNetWithMass_HbbvsQCD
-      - particleNetWithMass_HccvsQCD
-      - particleNetWithMass_QCD
-      - particleNetWithMass_TvsQCD
-      - particleNetWithMass_WvsQCD
-      - particleNetWithMass_ZvsQCD
-      - particleNet_QCD
-      - particleNet_QCD0HF
-      - particleNet_QCD1HF
-      - particleNet_QCD2HF
-      - particleNet_XbbVsQCD
-      - particleNet_XccVsQCD
-      - particleNet_XggVsQCD
-      - particleNet_XqqVsQCD
-      - particleNet_XteVsQCD
-      - particleNet_XtmVsQCD
-      - particleNet_XttVsQCD
-      - particleNet_massCorr
-    2023:
-      - particleNetWithMass_H4qvsQCD
-      - particleNetWithMass_HbbvsQCD
-      - particleNetWithMass_HccvsQCD
-      - particleNetWithMass_QCD
-      - particleNetWithMass_TvsQCD
-      - particleNetWithMass_WvsQCD
-      - particleNetWithMass_ZvsQCD
-      - particleNet_QCD
-      - particleNet_QCD0HF
-      - particleNet_QCD1HF
-      - particleNet_QCD2HF
-      - particleNet_XbbVsQCD
-      - particleNet_XccVsQCD
-      - particleNet_XggVsQCD
-      - particleNet_XqqVsQCD
-      - particleNet_XteVsQCD
-      - particleNet_XtmVsQCD
-      - particleNet_XttVsQCD
-      - particleNet_massCorr
-    2023BPix:
-      - particleNetWithMass_H4qvsQCD
-      - particleNetWithMass_HbbvsQCD
-      - particleNetWithMass_HccvsQCD
-      - particleNetWithMass_QCD
-      - particleNetWithMass_TvsQCD
-      - particleNetWithMass_WvsQCD
-      - particleNetWithMass_ZvsQCD
-      - particleNet_QCD
-      - particleNet_QCD0HF
-      - particleNet_QCD1HF
-      - particleNet_QCD2HF
-      - particleNet_XbbVsQCD
-      - particleNet_XccVsQCD
-      - particleNet_XggVsQCD
-      - particleNet_XqqVsQCD
-      - particleNet_XteVsQCD
-      - particleNet_XtmVsQCD
-      - particleNet_XttVsQCD
-      - particleNet_massCorr
-  V15:
-    2024:
-      - globalParT3_QCD
-      - globalParT3_TopbWev
-      - globalParT3_TopbWmv
-      - globalParT3_TopbWq
-      - globalParT3_TopbWqq
-      - globalParT3_TopbWtauhv
-      - globalParT3_WvsQCD
-      - globalParT3_XWW3q
-      - globalParT3_XWW4q
-      - globalParT3_XWWqqev
-      - globalParT3_XWWqqmv
-      - globalParT3_Xbb
-      - globalParT3_Xcc
-      - globalParT3_Xcs
-      - globalParT3_Xqq
-      - globalParT3_Xtauhtaue
-      - globalParT3_Xtauhtauh
-      - globalParT3_Xtauhtaum
-      - globalParT3_massCorrGeneric
-      - globalParT3_massCorrX2p
-      - globalParT3_withMassTopvsQCD
-      - globalParT3_withMassWvsQCD
-      - globalParT3_withMassZvsQCD
-      - particleNetLegacy_QCD
-      - particleNetLegacy_Xbb
-      - particleNetLegacy_Xcc
-      - particleNetLegacy_Xqq
-      - particleNetLegacy_mass
-      - particleNetWithMass_H4qvsQCD
-      - particleNetWithMass_HbbvsQCD
-      - particleNetWithMass_HccvsQCD
-      - particleNetWithMass_QCD
-      - particleNetWithMass_TvsQCD
-      - particleNetWithMass_WvsQCD
-      - particleNetWithMass_ZvsQCD
-      - particleNet_QCD
-      - particleNet_QCD0HF
-      - particleNet_QCD1HF
-      - particleNet_QCD2HF
-      - particleNet_WVsQCD
-      - particleNet_XbbVsQCD
-      - particleNet_XccVsQCD
-      - particleNet_XggVsQCD
-      - particleNet_XqqVsQCD
-      - particleNet_XteVsQCD
-      - particleNet_XtmVsQCD
-      - particleNet_XttVsQCD
-      - particleNet_massCorr
-
 # Version- and year-dependent AK4 b-tagging setup. Not every NanoAOD version
 # exists for every year, so only the supported combinations are listed.
 btag:
-  V9:
+  v9:
     2016APV:
       branch: btagDeepFlavB
       loose: 0.0508
@@ -449,7 +366,7 @@ btag:
       loose: 0.0490
       medium: 0.2783
       tight: 0.7100
-  V12:
+  v12:
     2022:
       branch: btagPNetB
       loose: 0.0470
@@ -478,7 +395,7 @@ btag:
       tight: 0.6133
       xtight: 0.7544
       xxtight: 0.9688
-  V15:
+  v15:
     2024:
       branch: btagUParTAK4B
       loose: 0.0246

@@ -7,6 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(ROOT REQUIRED COMPONENTS Core MathCore Physics RIO Tree TreePlayer)
 find_package(yaml-cpp REQUIRED)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 enable_testing()
 
 set(SKBUILD ON CACHE BOOL "Disable CMSJMECalculators python/dictionary build" FORCE)
@@ -23,6 +24,7 @@ add_library(nanoaodtools_cpp
   src/core/Helpers.cpp
   src/helpers/FatjetGenMatching.cpp
   src/helpers/JetMETCorrector.cpp
+  src/helpers/JmeVariation.cpp
   src/helpers/PuWeightProducer.cpp
   src/helpers/TopPtWeightProducer.cpp
   src/producers/HeavyFlavBaseProducer.cpp
@@ -38,12 +40,8 @@ target_link_libraries(nano_run PRIVATE nanoaodtools_cpp)
 add_executable(nano_make_condor app/nano_make_condor.cpp)
 target_link_libraries(nano_make_condor PRIVATE nanoaodtools_cpp)
 
-add_executable(muon_smoke_test tests/muon_smoke_test.cpp)
-target_link_libraries(muon_smoke_test PRIVATE nanoaodtools_cpp)
-target_include_directories(muon_smoke_test PRIVATE app)
-target_compile_definitions(muon_smoke_test PRIVATE NANOAODTOOLS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-
 add_test(
-  NAME muon_smoke_test
-  COMMAND muon_smoke_test ${CMAKE_SOURCE_DIR}/../tmp-data/TTto2L2Nu_nano_2024_example_bf09158c-9766-4221-a400-be4ebad0f8b8.root Events
+  NAME muon_validation
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/muon_validation_test.py --source-dir ${CMAKE_SOURCE_DIR} --build-dir ${CMAKE_BINARY_DIR} --group muon --max-input-events 5000
 )
+set_tests_properties(muon_validation PROPERTIES TIMEOUT 7200 LABELS "muon;reference;systematics")

@@ -50,9 +50,10 @@ void HeavyFlavMuonSampleProducer::begin_file() {
   out_.branch("leptonicW_pt", 0.0f);
 }
 
-bool HeavyFlavMuonSampleProducer::analyze(Event &event) {
-  // This follows the Python MuonSampleProducer selection order closely so the
-  // later full port can stay behaviorally aligned.
+// Run the part of the muon-channel selection that is independent of JME
+// variations. It selects the single tight high-pt muon and prepares the loose
+// lepton and fatjet gen-matching state through shared base-producer helpers.
+bool HeavyFlavMuonSampleProducer::analyze_common(Event &event) {
   auto muons = event.collection("Muon").objects();
   std::vector<ObjectView> selected_muons;
   for (auto &mu : muons) {
@@ -66,14 +67,21 @@ bool HeavyFlavMuonSampleProducer::analyze(Event &event) {
   }
   event.set("muons", selected_muons);
 
-  select_leptons(event);
-  correct_jets_and_met(event);
+  prepare_common_objects(event);
+  return true;
+}
+
+// Apply one JME variation, run the variation-dependent selections, and fill
+// the output model for that accepted event. This is called once for nominal
+// running and once per requested variation in multi-output mode.
+bool HeavyFlavMuonSampleProducer::analyze_variation(Event &event, const JmeEventResult &jme_result, JmeVariation variation) {
+  apply_jme_and_select_jets(event, jme_result, variation);
 
   if (event.get<float>("met_pt") < 50.0f) {
     return false;
   }
 
-  auto mu = selected_muons.front();
+  auto mu = event.get<std::vector<ObjectView>>("muons").front();
   event.set("mu", mu);
   const auto leptonic_w = polar_p4(mu) + met_p4(event.get<float>("met_pt"), event.get<float>("met_phi"));
   event.set("leptonicW", leptonic_w);
@@ -107,7 +115,6 @@ bool HeavyFlavMuonSampleProducer::analyze(Event &event) {
   // The muon channel keeps only the leading probe jet in the current workflow.
   probe_jets.erase(probe_jets.begin() + 1, probe_jets.end());
 
-  load_gen_history(event, probe_jets);
   fill_base_event_info(event);
   fill_fatjet_info(event, probe_jets);
 
@@ -117,6 +124,18 @@ bool HeavyFlavMuonSampleProducer::analyze(Event &event) {
   out_.fill("muon_miniIso", mu.get<float>("miniPFRelIso_all"));
   out_.fill("leptonicW_pt", static_cast<float>(leptonic_w.Pt()));
   return true;
+}
+
+JmeEventResult HeavyFlavMuonSampleProducer::compute_jme_result(Event &event) const {
+  return compute_jme(event);
+}
+
+bool HeavyFlavMuonSampleProducer::analyze(Event &event) {
+  if (!analyze_common(event)) {
+    return false;
+  }
+  const auto jme_result = compute_jme_result(event);
+  return analyze_variation(event, jme_result, JmeVariation::Nominal);
 }
 
 }  // namespace nano

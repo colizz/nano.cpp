@@ -1,0 +1,61 @@
+# Build directories
+/build/
+/cmake-build-*/
+/out/
+/dist/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
+compile_commands.json
+Makefile
+install_manifest.txt
+
+# Binaries and libraries
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+*.exe
+*.out
+
+# Test and coverage artifacts
+*.gcda
+*.gcno
+*.gcov
+coverage/
+__pycache__/
+*.py[cod]
+
+# Editor and IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Workspace files
+run/
+!configs/run/
+!configs/run/*.yaml
+out.root
+tests/data/muon_validation/inputs/
+tests/data/muon_validation/references/
+data/jme-derived/Run2-2016preVFP-UL-NanoAODv9/latest/fatJet_jerc.json.gz
+CLAUDE.md
+AGENTS.md
+.gitignore
+
+# Temp
+references/
+tmp/

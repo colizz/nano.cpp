@@ -3,6 +3,8 @@
 #include "nano/core/Event.h"
 #include "nano/core/OutputModel.h"
 #include "nano/core/Collection.h"
+#include "nano/helpers/JmeEventResult.h"
+#include "nano/helpers/JmeVariation.h"
 
 #include <memory>
 #include <string>
@@ -16,21 +18,32 @@ class PuWeightProducer;
 class TopPtWeightProducer;
 class FatjetGenMatching;
 
-struct JmeDataTagConfig {
-  std::uint32_t run_start = 0;
-  std::string tag;
+struct JmeObjectConfig {
+  std::string payload_subdir;
+  std::string jerc_file;
+  std::string algo = "AK4PFPuppi";
+  std::string jec_tag_mc;
+  std::string jec_tag_data;
+  std::string jer_tag_mc = "inherit";
 };
 
 struct JmeEraConfig {
-  std::string payload_prefix;
-  std::string jet_jec_tag_mc;
-  std::string fatjet_jec_tag_mc;
-  std::string jer_tag_mc;
+  std::string payload_subdir;
+  std::string jet_jerc_file = "jet_jerc.json.gz";
+  std::string fatjet_jerc_file = "fatJet_jerc.json.gz";
   std::string met_xy_corr_era;
-  std::vector<JmeDataTagConfig> data_tags;
+  std::vector<std::string> jes_uncertainties;
+  JmeObjectConfig jet;
+  JmeObjectConfig fatjet;
+  JmeObjectConfig subjet;
 };
 
 struct PuEraConfig {
+  std::string payload_subdir;
+  std::string correction_key;
+};
+
+struct JetVetoMapEraConfig {
   std::string payload_subdir;
   std::string correction_key;
 };
@@ -47,18 +60,29 @@ struct BTagConfig {
 struct ProducerConfig {
   std::string era = "2024";
   std::string channel;
-  std::string nano_version = "V15";
+  std::string nano_version = "v15";
   std::string selection;
   std::vector<std::string> required_triggers;
+  std::vector<std::string> read_branches;
+  std::unordered_map<std::string, BranchType> nano_branch_types;
   std::vector<std::string> tagger_names;
   BTagConfig btag_config;
   float year_value = 0.0f;
   float lumi_weight = 1.0f;
   std::string jme_payload_dir;
   std::string jme_jer_smear_json;
+  std::string jme_jes = "";
+  std::string jme_jer = "nominal";
+  std::string jme_met_unclustered = "";
+  bool jme_smear_met = false;
   std::unordered_map<std::string, JmeEraConfig> jme_eras;
   std::string pu_payload_dir;
   std::unordered_map<std::string, PuEraConfig> pu_eras;
+  bool jet_veto_map_enabled = false;
+  std::string jet_veto_map_payload_dir;
+  std::string jet_veto_map_type = "jetvetomap";
+  std::unordered_map<std::string, JetVetoMapEraConfig> jet_veto_map_eras;
+  bool include_lhe_weights = false;
 };
 
 class HeavyFlavBaseProducer {
@@ -74,8 +98,11 @@ public:
   static std::vector<BranchSpec> default_schema(const ProducerConfig &config);
 
 protected:
+  void prepare_common_objects(Event &event) const;
   void select_leptons(Event &event) const;
   void correct_jets_and_met(Event &event) const;
+  JmeEventResult compute_jme(Event &event) const;
+  void apply_jme_and_select_jets(Event &event, const JmeEventResult &jme_result, JmeVariation variation) const;
   void load_gen_history(Event &event, std::vector<ObjectView> &fatjets) const;
   void fill_base_event_info(Event &event);
   void fill_fatjet_info(Event &event, const std::vector<ObjectView> &fatjets);

@@ -17,14 +17,12 @@ bool Event::has(std::string_view name) const {
   return attachments_.count(std::string(name)) > 0U;
 }
 
+bool Event::has_physical_branch(std::string_view branch_name) const {
+  return reader_.has_physical_branch(branch_name);
+}
+
 bool Event::is_mc() const {
-  try {
-    // The current prototype uses the presence of genWeight as the MC/data split.
-    static_cast<void>(scalar<float>("genWeight"));
-    return true;
-  } catch (...) {
-    return false;
-  }
+  return reader_.has_physical_branch("genWeight");
 }
 
 AnyMap &Event::object_extras(std::string_view object_name, std::size_t index) {

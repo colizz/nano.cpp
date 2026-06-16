@@ -108,10 +108,23 @@ inline YAML::Node load_config_with_extends(const std::string &path) {
   if (!node["extends"]) {
     return node;
   }
-  const auto base_path = fs::path(path).parent_path() / node["extends"].as<std::string>();
+  const auto parent = fs::path(path).parent_path();
+  YAML::Node base = YAML::Node(YAML::NodeType::Map);
+  const auto extends = node["extends"];
+  if (extends.IsSequence()) {
+    for (const auto &entry : extends) {
+      const auto base_path = parent / entry.as<std::string>();
+      base = merge_yaml_nodes(base, load_config_with_extends(base_path.string()));
+    }
+  } else if (extends.IsScalar()) {
+    const auto base_path = parent / extends.as<std::string>();
+    base = load_config_with_extends(base_path.string());
+  } else {
+    throw std::runtime_error("Config extends must be a string or list of strings: " + path);
+  }
   auto overlay = YAML::Clone(node);
   overlay.remove("extends");
-  return merge_yaml_nodes(load_config_with_extends(base_path.string()), overlay);
+  return merge_yaml_nodes(base, overlay);
 }
 
 inline YAML::Node parse_override_value(const std::string &value) {
@@ -122,16 +135,23 @@ inline YAML::Node parse_override_value(const std::string &value) {
   }
 }
 
-inline void apply_override(YAML::Node &node, const std::string &key, const std::string &value) {
-  auto current = node;
-  const auto pieces = split_dot_key(key);
-  for (std::size_t i = 0; i + 1 < pieces.size(); ++i) {
-    if (!current[pieces[i]]) {
-      current[pieces[i]] = YAML::Node(YAML::NodeType::Map);
-    }
-    current = current[pieces[i]];
+inline void apply_override_path(YAML::Node node, const std::vector<std::string> &pieces, std::size_t index, const YAML::Node &value) {
+  if (index + 1 == pieces.size()) {
+    node[pieces[index]] = value;
+    return;
   }
-  current[pieces.back()] = parse_override_value(value);
+  if (!node[pieces[index]]) {
+    node[pieces[index]] = YAML::Node(YAML::NodeType::Map);
+  }
+  apply_override_path(node[pieces[index]], pieces, index + 1, value);
+}
+
+inline void apply_override(YAML::Node &node, const std::string &key, const std::string &value) {
+  const auto pieces = split_dot_key(key);
+  if (pieces.empty()) {
+    throw std::runtime_error("Empty override key");
+  }
+  apply_override_path(node, pieces, 0, parse_override_value(value));
 }
 
 inline void dump_yaml_file(const YAML::Node &node, const std::string &path) {

@@ -124,6 +124,21 @@ void FatjetGenMatching::process(Event &event, std::vector<ObjectView> &fatjets) 
     fj.set("dr_Z", dr_z);
     fj.set("dr_W", dr_w);
     fj.set("dr_T", dr_t);
+    fj.set("dr_H_daus", 99.0f);
+    fj.set("H_pt", -1.0f);
+    fj.set("H_decay", std::int32_t{0});
+    fj.set("dr_Z_daus", 99.0f);
+    fj.set("Z_pt", -1.0f);
+    fj.set("Z_decay", std::int32_t{0});
+    fj.set("dr_W_daus", 99.0f);
+    fj.set("W_pt", -1.0f);
+    fj.set("W_decay", std::int32_t{0});
+    fj.set("dr_T_b", 99.0f);
+    fj.set("dr_T_Wq_max", 99.0f);
+    fj.set("dr_T_Wq_min", 99.0f);
+    fj.set("T_Wq_max_pdgId", std::int32_t{0});
+    fj.set("T_Wq_min_pdgId", std::int32_t{0});
+    fj.set("T_pt", -1.0f);
 
     if (idx_h >= 0) {
       const auto &gen_h = had_gen_hs[static_cast<std::size_t>(idx_h)];

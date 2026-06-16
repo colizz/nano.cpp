@@ -49,6 +49,7 @@ public:
   }
 
   bool has(std::string_view name) const;
+  bool has_physical_branch(std::string_view branch_name) const;
   bool is_mc() const;
 
   // Object extras are keyed by collection name and object index so producers

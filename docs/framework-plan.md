@@ -31,7 +31,7 @@ Deferred pieces:
 
 ### Branch schema
 
-All input branches are declared explicitly in `HeavyFlavBaseProducer::default_schema()`.
+Input branches are declared explicitly by each runtime card's `read_branches` list, with types resolved from `configs/branches/*.yaml`.
 
 Grouping rule:
 
@@ -86,7 +86,7 @@ if the codebase grows.
 ## Recommended next steps
 
 1. Replace the in-memory `OutputModel` with a real ROOT output writer, preferably another `RNTuple` writer.
-2. Split `default_schema()` into channel-specific branch manifests so each producer only requests the fields it needs.
+2. Keep channel-specific branch manifests in runtime YAML so each producer only requests the fields it needs.
 3. Add typed helper wrappers for common objects:
    - `MuonView`
    - `JetView`

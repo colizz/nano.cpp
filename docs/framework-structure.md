@@ -16,8 +16,8 @@
 ## Main execution flow
 
 1. `nano_run` loads YAML config, applies `extends`, then applies CLI `--set` overrides.
-2. `HeavyFlavBaseProducer::default_schema()` declares the exact input branches to bind.
-3. `NanoReader` binds those branches.
+2. The runtime card's `read_branches` list declares the exact input branches to bind.
+3. `nano_run` resolves their types from `configs/branches/*.yaml`, and `NanoReader` binds those branches.
 4. Each selected entry is wrapped as `Event`.
 5. The channel producer runs `analyze(Event&)`.
 6. `OutputModel` receives branch values.
@@ -25,8 +25,9 @@
 
 ## Configuration sources
 
-- `configs/base.yaml`: shared defaults for JEC/JER, PU, tagger lists, b-tag working points, year/lumi values, and preselection strings.
-- `configs/<channel>_<era>.yaml`: channel or campaign overrides.
+- `configs/base.yaml`: shared defaults for JEC/JER, PU, b-tag working points, year/lumi values, and preselection strings.
+- `configs/branches/*.yaml`: NanoAOD branch catalogues and ROOT types by NanoAOD version.
+- `configs/run/<channel>_<era>_v<version>.yaml`: executable runtime cards, including `read_branches` and `stored_tagger_names`.
 - CLI `--set key=value`: final override layer.
 
 ## Current muon implementation
@@ -44,5 +45,5 @@ Use the reference only to port or validate behavior. Do not edit it unless the u
 
 ## Validation path
 
-- `tests/muon_smoke_test.cpp`: smallest end-to-end regression for the muon channel.
+- `tests/muon_validation_test.py`: muon-channel reference validation for nominal MC/data and 2016APV JME variations.
 - `ctest --test-dir build --output-on-failure`: default local verification command.
