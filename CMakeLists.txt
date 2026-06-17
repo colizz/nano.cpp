@@ -40,6 +40,9 @@ target_link_libraries(nano_run PRIVATE nanoaodtools_cpp)
 add_executable(nano_make_condor app/nano_make_condor.cpp)
 target_link_libraries(nano_make_condor PRIVATE nanoaodtools_cpp)
 
+add_executable(nano_merge app/nano_merge.cpp)
+target_link_libraries(nano_merge PRIVATE nanoaodtools_cpp)
+
 add_test(
   NAME muon_validation
   COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/muon_validation_test.py --source-dir ${CMAKE_SOURCE_DIR} --build-dir ${CMAKE_BINARY_DIR} --group muon --max-input-events 5000
