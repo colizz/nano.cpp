@@ -83,6 +83,8 @@ read_branches:
   - HLT_TkMu50
   - PuppiMET_pt
   - PuppiMET_phi
+  - PuppiMET_ptUnclusteredUp
+  - PuppiMET_phiUnclusteredUp
   - RawPuppiMET_pt
   - RawPuppiMET_phi
   - Rho_fixedGridRhoFastjetAll

@@ -235,6 +235,90 @@ jec:
         jec_tag_mc: Summer23BPixPrompt23_V4_MC
         jec_tag_data: Summer23BPixPrompt23_V4_DATA
         jer_tag_mc: inherit
+    2016APV_NanoAODv15:
+      payload_subdir: Run2-2016preVFP-UL-NanoAODv15
+      jet_jerc_file: jet_jerc.json.gz
+      fatjet_jerc_file: fatJet_jerc.json.gz
+      met_xy_corr_era: ""
+      jes_uncertainties: [Total]
+      jet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer20UL16APVNanoV15_V1_MC
+        jec_tag_data: Summer20UL16APVNanoV15_V1_DATA
+        jer_tag_mc: Summer20UL16APV_JRV5_MC
+      fatjet:
+        algo: AK8PFPuppi
+        jec_tag_mc: Summer20UL16APVNanoV15_V1_MC
+        jec_tag_data: Summer20UL16APVNanoV15_V1_DATA
+        jer_tag_mc: inherit
+      subjet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer20UL16APVNanoV15_V1_MC
+        jec_tag_data: Summer20UL16APVNanoV15_V1_DATA
+        jer_tag_mc: inherit
+    2016_NanoAODv15:
+      payload_subdir: Run2-2016postVFP-UL-NanoAODv15
+      jet_jerc_file: jet_jerc.json.gz
+      fatjet_jerc_file: fatJet_jerc.json.gz
+      met_xy_corr_era: ""
+      jes_uncertainties: [Total]
+      jet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer20UL16NanoV15_V1_MC
+        jec_tag_data: Summer20UL16NanoV15_V1_DATA
+        jer_tag_mc: Summer20UL16_JRV5_MC
+      fatjet:
+        algo: AK8PFPuppi
+        jec_tag_mc: Summer20UL16NanoV15_V1_MC
+        jec_tag_data: Summer20UL16NanoV15_V1_DATA
+        jer_tag_mc: inherit
+      subjet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer20UL16NanoV15_V1_MC
+        jec_tag_data: Summer20UL16NanoV15_V1_DATA
+        jer_tag_mc: inherit
+    2017_NanoAODv15:
+      payload_subdir: Run2-2017-UL-NanoAODv15
+      jet_jerc_file: jet_jerc.json.gz
+      fatjet_jerc_file: fatJet_jerc.json.gz
+      met_xy_corr_era: ""
+      jes_uncertainties: [Total]
+      jet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer20UL17NanoV15_V1_MC
+        jec_tag_data: Summer20UL17NanoV15_V1_DATA
+        jer_tag_mc: Summer19UL17_JRV4_MC
+      fatjet:
+        algo: AK8PFPuppi
+        jec_tag_mc: Summer20UL17NanoV15_V1_MC
+        jec_tag_data: Summer20UL17NanoV15_V1_DATA
+        jer_tag_mc: inherit
+      subjet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer20UL17NanoV15_V1_MC
+        jec_tag_data: Summer20UL17NanoV15_V1_DATA
+        jer_tag_mc: inherit
+    2018_NanoAODv15:
+      payload_subdir: Run2-2018-UL-NanoAODv15
+      jet_jerc_file: jet_jerc.json.gz
+      fatjet_jerc_file: fatJet_jerc.json.gz
+      met_xy_corr_era: ""
+      jes_uncertainties: [Total]
+      jet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer20UL18NanoV15_V1_MC
+        jec_tag_data: Summer20UL18NanoV15_V1_DATA
+        jer_tag_mc: Summer19UL18_JRV3_MC
+      fatjet:
+        algo: AK8PFPuppi
+        jec_tag_mc: Summer20UL18NanoV15_V1_MC
+        jec_tag_data: Summer20UL18NanoV15_V1_DATA
+        jer_tag_mc: inherit
+      subjet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Summer20UL18NanoV15_V1_MC
+        jec_tag_data: Summer20UL18NanoV15_V1_DATA
+        jer_tag_mc: inherit
     2024_NanoAODv15:
       payload_subdir: Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15
       jet_jerc_file: jet_jerc.json.gz
@@ -344,6 +428,7 @@ lumi_values:
 
 # Version- and year-dependent AK4 b-tagging setup. Not every NanoAOD version
 # exists for every year, so only the supported combinations are listed.
+# Reference: https://btv-wiki.docs.cern.ch/ScaleFactors/
 btag:
   v9:
     2016APV:
@@ -396,6 +481,34 @@ btag:
       xtight: 0.7544
       xxtight: 0.9688
   v15:
+    2016APV:
+      branch: btagUParTAK4B
+      loose: 0.0387
+      medium: 0.1847
+      tight: 0.5467
+      xtight: 0.6777
+      xxtight: 0.9218
+    2016:
+      branch: btagUParTAK4B
+      loose: 0.0400
+      medium: 0.1898
+      tight: 0.5538
+      xtight: 0.6872
+      xxtight: 0.9353
+    2017:
+      branch: btagUParTAK4B
+      loose: 0.0331
+      medium: 0.1776
+      tight: 0.5755
+      xtight: 0.7274
+      xxtight: 0.9666
+    2018:
+      branch: btagUParTAK4B
+      loose: 0.0308
+      medium: 0.1610
+      tight: 0.5405
+      xtight: 0.6992
+      xxtight: 0.9655
     2024:
       branch: btagUParTAK4B
       loose: 0.0246

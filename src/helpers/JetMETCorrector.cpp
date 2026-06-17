@@ -11,8 +11,11 @@
 #include <correction.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
+#include <cstdlib>
 #include <filesystem>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <stdexcept>
@@ -27,6 +30,82 @@ namespace {
 using RVecF = ROOT::VecOps::RVec<float>;
 using RVecI = ROOT::VecOps::RVec<int>;
 using correction::CorrectionSet;
+
+bool debug_bundle_io_enabled() {
+  const auto *value = std::getenv("NANO_JME_DEBUG_BUNDLE_IO");
+  if (!value) {
+    return false;
+  }
+  std::string normalized;
+  for (const auto ch : std::string_view(value)) {
+    normalized.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+  }
+  return !(normalized.empty() || normalized == "0" || normalized == "false" || normalized == "no" || normalized == "off");
+}
+
+template <typename T>
+void debug_print_scalar(std::ostream &os, std::string_view name, const T &value) {
+  os << "    " << name << " = " << value << '\n';
+}
+
+template <typename T>
+void debug_print_vector(std::ostream &os, std::string_view name, const ROOT::VecOps::RVec<T> &values) {
+  os << "    " << name << " [size=" << values.size() << "] = [";
+  for (std::size_t i = 0; i < values.size(); ++i) {
+    if (i > 0) {
+      os << ", ";
+    }
+    os << values[i];
+  }
+  os << "]\n";
+}
+
+void debug_print_labels(std::ostream &os, const std::vector<std::string> &labels) {
+  os << "    variations [size=" << labels.size() << "] = [";
+  for (std::size_t i = 0; i < labels.size(); ++i) {
+    if (i > 0) {
+      os << ", ";
+    }
+    os << labels[i];
+  }
+  os << "]\n";
+}
+
+void debug_print_jets_output(std::ostream &os, std::string_view name, const std::vector<std::string> &labels,
+                             const JetVariationsCalculator::result_t &result) {
+  os << "[NANO_JME_DEBUG_BUNDLE_IO] " << name << " output\n";
+  debug_print_labels(os, labels);
+  for (std::size_t i = 0; i < result.size(); ++i) {
+    const auto label = i < labels.size() ? labels[i] : std::string("variation_") + std::to_string(i);
+    debug_print_vector(os, std::string("output.") + label + ".pt", result.pt(i));
+    debug_print_vector(os, std::string("output.") + label + ".mass", result.mass(i));
+  }
+}
+
+void debug_print_fatjets_output(std::ostream &os, std::string_view name, const std::vector<std::string> &labels,
+                                const FatJetVariationsCalculator::result_t &result) {
+  os << "[NANO_JME_DEBUG_BUNDLE_IO] " << name << " output\n";
+  debug_print_labels(os, labels);
+  for (std::size_t i = 0; i < result.size(); ++i) {
+    const auto label = i < labels.size() ? labels[i] : std::string("variation_") + std::to_string(i);
+    debug_print_vector(os, std::string("output.") + label + ".pt", result.pt(i));
+    debug_print_vector(os, std::string("output.") + label + ".mass", result.mass(i));
+    debug_print_vector(os, std::string("output.") + label + ".msoftdrop", result.msoftdrop(i));
+  }
+}
+
+void debug_print_met_output(std::ostream &os, std::string_view name, const std::vector<std::string> &labels,
+                            const Type1METVariationsCalculator::result_t &result) {
+  os << "[NANO_JME_DEBUG_BUNDLE_IO] " << name << " output\n";
+  debug_print_labels(os, labels);
+  for (std::size_t i = 0; i < result.size(); ++i) {
+    const auto label = i < labels.size() ? labels[i] : std::string("variation_") + std::to_string(i);
+    debug_print_scalar(os, std::string("output.") + label + ".px", result.px(i));
+    debug_print_scalar(os, std::string("output.") + label + ".py", result.py(i));
+    debug_print_scalar(os, std::string("output.") + label + ".pt", result.pt(i));
+    debug_print_scalar(os, std::string("output.") + label + ".phi", result.phi(i));
+  }
+}
 
 template <typename T>
 ROOT::VecOps::RVec<T> to_rvec(const std::vector<T> &values) {
@@ -65,6 +144,15 @@ RVecI to_rvec_int32(const std::vector<std::int32_t> &values) {
   return RVecI(values.begin(), values.end());
 }
 
+RVecI jet_id_rvec(const std::vector<ObjectView> &jets, std::string_view nano_version) {
+  RVecI out;
+  out.reserve(jets.size());
+  for (const auto &jet : jets) {
+    out.push_back(pass_jet_id(jet, nano_version, false) ? 0x2 : 0);
+  }
+  return out;
+}
+
 RVecI int_rvec(Event &event, std::string_view branch_name) {
   const auto *info = event.schema().find(branch_name);
   if (!info) {
@@ -93,6 +181,18 @@ RVecI int_rvec(Event &event, std::string_view branch_name) {
 
 float get_scalar_or(Event &event, std::string_view name, float fallback) {
   return event.has_physical_branch(name) ? event.scalar<float>(name) : fallback;
+}
+
+std::pair<float, float> met_unclustered_up_delta(Event &event, std::string_view nano_version) {
+  if (nano_version == "v9") {
+    return {get_scalar_or(event, "MET_MetUnclustEnUpDeltaX", 0.f), get_scalar_or(event, "MET_MetUnclustEnUpDeltaY", 0.f)};
+  }
+
+  const auto pt = event.scalar<float>("PuppiMET_pt");
+  const auto phi = event.scalar<float>("PuppiMET_phi");
+  const auto pt_up = event.scalar<float>("PuppiMET_ptUnclusteredUp");
+  const auto phi_up = event.scalar<float>("PuppiMET_phiUnclusteredUp");
+  return {pt_up * std::cos(phi_up) - pt * std::cos(phi), pt_up * std::sin(phi_up) - pt * std::sin(phi)};
 }
 
 std::uint32_t get_run_number(const Event &event) {
@@ -430,12 +530,21 @@ std::int32_t JetMETCorrector::compute_jet_veto_flag(const std::vector<ObjectView
 
 JmeEventResult JetMETCorrector::compute_event(Event &event) const {
   const auto is_mc = event.is_mc();
+  const auto debug_bundle_io = debug_bundle_io_enabled();
   JmeEventResult result;
   result.is_mc = is_mc;
 
   const auto &bundle = bundle_for_event(event);
   const auto run = static_cast<int>(get_run_number(event));
   const auto rho = get_scalar_or(event, "Rho_fixedGridRhoFastjetAll", get_scalar_or(event, "fixedGridRhoFastjetAll", 0.f));
+  if (debug_bundle_io) {
+    std::cerr << "\n[NANO_JME_DEBUG_BUNDLE_IO] event"
+              << " run=" << run
+              << " luminosityBlock=" << event.scalar<std::uint32_t>("luminosityBlock")
+              << " event=" << event.scalar<std::uint64_t>("event")
+              << " is_mc=" << is_mc
+              << " rho=" << rho << '\n';
+  }
 
   auto ak4_jets = event.collection("Jet").objects();
   auto fatjet_jets = event.collection("FatJet").objects();
@@ -447,7 +556,7 @@ JmeEventResult JetMETCorrector::compute_event(Event &event) const {
   const auto jet_mass = to_rvec(event.vector<float>("Jet_mass"));
   const auto jet_raw = to_rvec(event.vector<float>("Jet_rawFactor"));
   const auto jet_area = to_rvec(event.vector<float>("Jet_area"));
-  const auto jet_jetid = int_rvec(event, "Jet_jetId");
+  const auto jet_jetid = jet_id_rvec(ak4_jets, config_.nano_version);
   const auto jet_genidx = is_mc ? int_rvec(event, "Jet_genJetIdx") : zeros_i(jet_pt.size(), -1);
   const auto jet_parton = is_mc ? int_rvec(event, "Jet_partonFlavour") : zeros_i(jet_pt.size(), 0);
 
@@ -457,9 +566,31 @@ JmeEventResult JetMETCorrector::compute_event(Event &event) const {
   const auto gen_mass = is_mc ? to_rvec(event.vector<float>("GenJet_mass")) : RVecF{};
 
   const auto jet_seed = rnd_seed(event, ak4_jets);
+  if (debug_bundle_io) {
+    std::cerr << "[NANO_JME_DEBUG_BUNDLE_IO] bundle.ak4_jets input\n";
+    debug_print_vector(std::cerr, "jet_pt", jet_pt);
+    debug_print_vector(std::cerr, "jet_eta", jet_eta);
+    debug_print_vector(std::cerr, "jet_phi", jet_phi);
+    debug_print_vector(std::cerr, "jet_mass", jet_mass);
+    debug_print_vector(std::cerr, "jet_raw", jet_raw);
+    debug_print_vector(std::cerr, "jet_area", jet_area);
+    debug_print_vector(std::cerr, "jet_jetid", jet_jetid);
+    debug_print_scalar(std::cerr, "rho", rho);
+    debug_print_vector(std::cerr, "jet_genidx", jet_genidx);
+    debug_print_vector(std::cerr, "jet_parton", jet_parton);
+    debug_print_scalar(std::cerr, "jet_seed", jet_seed);
+    debug_print_scalar(std::cerr, "run", run);
+    debug_print_vector(std::cerr, "gen_pt", gen_pt);
+    debug_print_vector(std::cerr, "gen_eta", gen_eta);
+    debug_print_vector(std::cerr, "gen_phi", gen_phi);
+    debug_print_vector(std::cerr, "gen_mass", gen_mass);
+  }
   result.ak4_jets =
       bundle.ak4_jets->produce(jet_pt, jet_eta, jet_phi, jet_mass, jet_raw, jet_area, jet_jetid, rho, jet_genidx, jet_parton,
                                jet_seed, run, gen_pt, gen_eta, gen_phi, gen_mass);
+  if (debug_bundle_io) {
+    debug_print_jets_output(std::cerr, "bundle.ak4_jets", bundle.ak4_jets->available(), result.ak4_jets);
+  }
 
   const auto lowpt_rawpt = to_rvec(event.vector<float>("CorrT1METJet_rawPt"));
   const auto lowpt_eta = to_rvec(event.vector<float>("CorrT1METJet_eta"));
@@ -467,23 +598,93 @@ JmeEventResult JetMETCorrector::compute_event(Event &event) const {
   const auto lowpt_area = to_rvec(event.vector<float>("CorrT1METJet_area"));
   const auto lowpt_muon = to_rvec(event.vector<float>("CorrT1METJet_muonSubtrFactor"));
   const auto lowpt_zero = zeros_f(lowpt_rawpt.size());
-  const auto met_dx = get_scalar_or(event, "MET_MetUnclustEnUpDeltaX", 0.f);
-  const auto met_dy = get_scalar_or(event, "MET_MetUnclustEnUpDeltaY", 0.f);
+  const auto [met_dx, met_dy] = met_unclustered_up_delta(event, config_.nano_version);
 
   const auto raw_met_prefix = config_.nano_version == "v9" ? "RawMET" : "RawPuppiMET";
+  const auto jet_muon = to_rvec(event.vector<float>("Jet_muonSubtrFactor"));
+  const auto jet_neemef = to_rvec(event.vector<float>("Jet_neEmEF"));
+  const auto jet_chemef = to_rvec(event.vector<float>("Jet_chEmEF"));
+  const auto raw_met_phi = event.scalar<float>(std::string(raw_met_prefix) + "_phi");
+  const auto raw_met_pt = event.scalar<float>(std::string(raw_met_prefix) + "_pt");
+  if (debug_bundle_io) {
+    std::cerr << "[NANO_JME_DEBUG_BUNDLE_IO] bundle.met input\n";
+    debug_print_vector(std::cerr, "jet_pt", jet_pt);
+    debug_print_vector(std::cerr, "jet_eta", jet_eta);
+    debug_print_vector(std::cerr, "jet_phi", jet_phi);
+    debug_print_vector(std::cerr, "jet_mass", jet_mass);
+    debug_print_vector(std::cerr, "jet_raw", jet_raw);
+    debug_print_vector(std::cerr, "jet_area", jet_area);
+    debug_print_vector(std::cerr, "jet_muon", jet_muon);
+    debug_print_vector(std::cerr, "jet_neEmEF", jet_neemef);
+    debug_print_vector(std::cerr, "jet_chEmEF", jet_chemef);
+    debug_print_vector(std::cerr, "jet_jetid", jet_jetid);
+    debug_print_scalar(std::cerr, "rho", rho);
+    debug_print_vector(std::cerr, "jet_genidx", jet_genidx);
+    debug_print_vector(std::cerr, "jet_parton", jet_parton);
+    debug_print_scalar(std::cerr, "jet_seed", jet_seed);
+    debug_print_scalar(std::cerr, "run", run);
+    debug_print_vector(std::cerr, "gen_pt", gen_pt);
+    debug_print_vector(std::cerr, "gen_eta", gen_eta);
+    debug_print_vector(std::cerr, "gen_phi", gen_phi);
+    debug_print_vector(std::cerr, "gen_mass", gen_mass);
+    debug_print_scalar(std::cerr, std::string(raw_met_prefix) + "_phi", raw_met_phi);
+    debug_print_scalar(std::cerr, std::string(raw_met_prefix) + "_pt", raw_met_pt);
+    debug_print_vector(std::cerr, "lowpt_rawpt", lowpt_rawpt);
+    debug_print_vector(std::cerr, "lowpt_eta", lowpt_eta);
+    debug_print_vector(std::cerr, "lowpt_phi", lowpt_phi);
+    debug_print_vector(std::cerr, "lowpt_area", lowpt_area);
+    debug_print_vector(std::cerr, "lowpt_muon", lowpt_muon);
+    debug_print_vector(std::cerr, "lowpt_zero", lowpt_zero);
+    debug_print_scalar(std::cerr, "met_dx", met_dx);
+    debug_print_scalar(std::cerr, "met_dy", met_dy);
+  }
   result.met = bundle.met->produce(
-      jet_pt, jet_eta, jet_phi, jet_mass, jet_raw, jet_area, to_rvec(event.vector<float>("Jet_muonSubtrFactor")),
-      to_rvec(event.vector<float>("Jet_neEmEF")), to_rvec(event.vector<float>("Jet_chEmEF")), jet_jetid, rho, jet_genidx, jet_parton,
-      jet_seed, run, gen_pt, gen_eta, gen_phi, gen_mass, event.scalar<float>(std::string(raw_met_prefix) + "_phi"),
-      event.scalar<float>(std::string(raw_met_prefix) + "_pt"), lowpt_rawpt, lowpt_eta, lowpt_phi, lowpt_area, lowpt_muon, lowpt_zero,
-      lowpt_zero, met_dx, met_dy, static_cast<unsigned char>(0));
+      jet_pt, jet_eta, jet_phi, jet_mass, jet_raw, jet_area, jet_muon, jet_neemef, jet_chemef, jet_jetid, rho, jet_genidx,
+      jet_parton, jet_seed, run, gen_pt, gen_eta, gen_phi, gen_mass, raw_met_phi, raw_met_pt, lowpt_rawpt, lowpt_eta, lowpt_phi,
+      lowpt_area, lowpt_muon, lowpt_zero, lowpt_zero, met_dx, met_dy, static_cast<unsigned char>(0));
+  if (debug_bundle_io) {
+    debug_print_met_output(std::cerr, "bundle.met", bundle.met->available(), result.met);
+  }
   if (bundle.met_smeared) {
+    if (debug_bundle_io) {
+      std::cerr << "[NANO_JME_DEBUG_BUNDLE_IO] bundle.met_smeared input\n";
+      debug_print_vector(std::cerr, "jet_pt", jet_pt);
+      debug_print_vector(std::cerr, "jet_eta", jet_eta);
+      debug_print_vector(std::cerr, "jet_phi", jet_phi);
+      debug_print_vector(std::cerr, "jet_mass", jet_mass);
+      debug_print_vector(std::cerr, "jet_raw", jet_raw);
+      debug_print_vector(std::cerr, "jet_area", jet_area);
+      debug_print_vector(std::cerr, "jet_muon", jet_muon);
+      debug_print_vector(std::cerr, "jet_neEmEF", jet_neemef);
+      debug_print_vector(std::cerr, "jet_chEmEF", jet_chemef);
+      debug_print_vector(std::cerr, "jet_jetid", jet_jetid);
+      debug_print_scalar(std::cerr, "rho", rho);
+      debug_print_vector(std::cerr, "jet_genidx", jet_genidx);
+      debug_print_vector(std::cerr, "jet_parton", jet_parton);
+      debug_print_scalar(std::cerr, "jet_seed", jet_seed);
+      debug_print_scalar(std::cerr, "run", run);
+      debug_print_vector(std::cerr, "gen_pt", gen_pt);
+      debug_print_vector(std::cerr, "gen_eta", gen_eta);
+      debug_print_vector(std::cerr, "gen_phi", gen_phi);
+      debug_print_vector(std::cerr, "gen_mass", gen_mass);
+      debug_print_scalar(std::cerr, std::string(raw_met_prefix) + "_phi", raw_met_phi);
+      debug_print_scalar(std::cerr, std::string(raw_met_prefix) + "_pt", raw_met_pt);
+      debug_print_vector(std::cerr, "lowpt_rawpt", lowpt_rawpt);
+      debug_print_vector(std::cerr, "lowpt_eta", lowpt_eta);
+      debug_print_vector(std::cerr, "lowpt_phi", lowpt_phi);
+      debug_print_vector(std::cerr, "lowpt_area", lowpt_area);
+      debug_print_vector(std::cerr, "lowpt_muon", lowpt_muon);
+      debug_print_vector(std::cerr, "lowpt_zero", lowpt_zero);
+      debug_print_scalar(std::cerr, "met_dx", met_dx);
+      debug_print_scalar(std::cerr, "met_dy", met_dy);
+    }
     result.met_smeared = bundle.met_smeared->produce(
-        jet_pt, jet_eta, jet_phi, jet_mass, jet_raw, jet_area, to_rvec(event.vector<float>("Jet_muonSubtrFactor")),
-        to_rvec(event.vector<float>("Jet_neEmEF")), to_rvec(event.vector<float>("Jet_chEmEF")), jet_jetid, rho, jet_genidx, jet_parton,
-        jet_seed, run, gen_pt, gen_eta, gen_phi, gen_mass, event.scalar<float>(std::string(raw_met_prefix) + "_phi"),
-        event.scalar<float>(std::string(raw_met_prefix) + "_pt"), lowpt_rawpt, lowpt_eta, lowpt_phi, lowpt_area, lowpt_muon, lowpt_zero,
-        lowpt_zero, met_dx, met_dy, static_cast<unsigned char>(0));
+        jet_pt, jet_eta, jet_phi, jet_mass, jet_raw, jet_area, jet_muon, jet_neemef, jet_chemef, jet_jetid, rho, jet_genidx,
+        jet_parton, jet_seed, run, gen_pt, gen_eta, gen_phi, gen_mass, raw_met_phi, raw_met_pt, lowpt_rawpt, lowpt_eta, lowpt_phi,
+        lowpt_area, lowpt_muon, lowpt_zero, lowpt_zero, met_dx, met_dy, static_cast<unsigned char>(0));
+    if (debug_bundle_io) {
+      debug_print_met_output(std::cerr, "bundle.met_smeared", bundle.met_smeared->available(), result.met_smeared);
+    }
   } else {
     result.met_smeared = result.met;
   }
@@ -497,7 +698,7 @@ JmeEventResult JetMETCorrector::compute_event(Event &event) const {
   const auto fatjet_msd = to_rvec(event.vector<float>("FatJet_msoftdrop"));
   const auto fatjet_sj1 = int_rvec(event, "FatJet_subJetIdx1");
   const auto fatjet_sj2 = int_rvec(event, "FatJet_subJetIdx2");
-  const auto fatjet_jetid = int_rvec(event, "FatJet_jetId");
+  const auto fatjet_jetid = jet_id_rvec(fatjet_jets, config_.nano_version);
   const auto fatjet_genidx = is_mc ? int_rvec(event, "FatJet_genJetAK8Idx") : zeros_i(fatjet_pt.size(), -1);
   const auto genfatjet_pt = is_mc ? to_rvec(event.vector<float>("GenJetAK8_pt")) : RVecF{};
   const auto genfatjet_eta = is_mc ? to_rvec(event.vector<float>("GenJetAK8_eta")) : RVecF{};
@@ -512,20 +713,73 @@ JmeEventResult JetMETCorrector::compute_event(Event &event) const {
   const auto subjet_area = filled_f(subjet_pt.size(), 0.5f);
 
   const auto fatjet_seed = rnd_seed(event, fatjet_jets);
+  if (debug_bundle_io) {
+    std::cerr << "[NANO_JME_DEBUG_BUNDLE_IO] bundle.fatjet_jets input\n";
+    debug_print_vector(std::cerr, "fatjet_pt", fatjet_pt);
+    debug_print_vector(std::cerr, "fatjet_eta", fatjet_eta);
+    debug_print_vector(std::cerr, "fatjet_phi", fatjet_phi);
+    debug_print_vector(std::cerr, "fatjet_mass", fatjet_mass);
+    debug_print_vector(std::cerr, "fatjet_raw", fatjet_raw);
+    debug_print_vector(std::cerr, "fatjet_area", fatjet_area);
+    debug_print_vector(std::cerr, "fatjet_msd", fatjet_msd);
+    debug_print_vector(std::cerr, "fatjet_sj1", fatjet_sj1);
+    debug_print_vector(std::cerr, "fatjet_sj2", fatjet_sj2);
+    debug_print_vector(std::cerr, "subjet_pt", subjet_pt);
+    debug_print_vector(std::cerr, "subjet_eta", subjet_eta);
+    debug_print_vector(std::cerr, "subjet_phi", subjet_phi);
+    debug_print_vector(std::cerr, "subjet_mass", subjet_mass);
+    debug_print_vector(std::cerr, "subjet_raw", subjet_raw);
+    debug_print_vector(std::cerr, "fatjet_jetid", fatjet_jetid);
+    debug_print_scalar(std::cerr, "rho", rho);
+    debug_print_vector(std::cerr, "fatjet_genidx", fatjet_genidx);
+    debug_print_scalar(std::cerr, "fatjet_seed", fatjet_seed);
+    debug_print_scalar(std::cerr, "run", run);
+    debug_print_vector(std::cerr, "genfatjet_pt", genfatjet_pt);
+    debug_print_vector(std::cerr, "genfatjet_eta", genfatjet_eta);
+    debug_print_vector(std::cerr, "genfatjet_phi", genfatjet_phi);
+    debug_print_vector(std::cerr, "genfatjet_mass", genfatjet_mass);
+  }
   result.fatjets = bundle.fatjet_jets->produce(fatjet_pt, fatjet_eta, fatjet_phi, fatjet_mass, fatjet_raw, fatjet_area, fatjet_msd,
                                                fatjet_sj1, fatjet_sj2, subjet_pt, subjet_eta, subjet_phi, subjet_mass, subjet_raw,
                                                fatjet_jetid, rho, fatjet_genidx, fatjet_seed, run, genfatjet_pt, genfatjet_eta,
                                                genfatjet_phi, genfatjet_mass);
+  if (debug_bundle_io) {
+    debug_print_fatjets_output(std::cerr, "bundle.fatjet_jets", bundle.fatjet_jets->available(), result.fatjets);
+  }
 
   const auto gen_sub_pt = is_mc ? to_rvec(event.vector<float>("SubGenJetAK8_pt")) : RVecF{};
   const auto gen_sub_eta = is_mc ? to_rvec(event.vector<float>("SubGenJetAK8_eta")) : RVecF{};
   const auto gen_sub_phi = is_mc ? to_rvec(event.vector<float>("SubGenJetAK8_phi")) : RVecF{};
   const auto gen_sub_mass = is_mc ? to_rvec(event.vector<float>("SubGenJetAK8_mass")) : RVecF{};
   const auto subjet_seed = rnd_seed(event, subjets);
+  const auto subjet_jetid = zeros_i(subjet_pt.size(), 0);
+  const auto subjet_genidx = zeros_i(subjet_pt.size(), -1);
+  const auto subjet_parton = zeros_i(subjet_pt.size(), 0);
+  if (debug_bundle_io) {
+    std::cerr << "[NANO_JME_DEBUG_BUNDLE_IO] bundle.subjets input\n";
+    debug_print_vector(std::cerr, "subjet_pt", subjet_pt);
+    debug_print_vector(std::cerr, "subjet_eta", subjet_eta);
+    debug_print_vector(std::cerr, "subjet_phi", subjet_phi);
+    debug_print_vector(std::cerr, "subjet_mass", subjet_mass);
+    debug_print_vector(std::cerr, "subjet_raw", subjet_raw);
+    debug_print_vector(std::cerr, "subjet_area", subjet_area);
+    debug_print_vector(std::cerr, "subjet_jetid", subjet_jetid);
+    debug_print_scalar(std::cerr, "rho", rho);
+    debug_print_vector(std::cerr, "subjet_genidx", subjet_genidx);
+    debug_print_vector(std::cerr, "subjet_parton", subjet_parton);
+    debug_print_scalar(std::cerr, "subjet_seed", subjet_seed);
+    debug_print_scalar(std::cerr, "run", run);
+    debug_print_vector(std::cerr, "gen_sub_pt", gen_sub_pt);
+    debug_print_vector(std::cerr, "gen_sub_eta", gen_sub_eta);
+    debug_print_vector(std::cerr, "gen_sub_phi", gen_sub_phi);
+    debug_print_vector(std::cerr, "gen_sub_mass", gen_sub_mass);
+  }
   result.subjets =
-      bundle.subjets->produce(subjet_pt, subjet_eta, subjet_phi, subjet_mass, subjet_raw, subjet_area, zeros_i(subjet_pt.size(), 0),
-                              rho, zeros_i(subjet_pt.size(), -1), zeros_i(subjet_pt.size(), 0), subjet_seed, run, gen_sub_pt, gen_sub_eta,
-                              gen_sub_phi, gen_sub_mass);
+      bundle.subjets->produce(subjet_pt, subjet_eta, subjet_phi, subjet_mass, subjet_raw, subjet_area, subjet_jetid, rho, subjet_genidx,
+                              subjet_parton, subjet_seed, run, gen_sub_pt, gen_sub_eta, gen_sub_phi, gen_sub_mass);
+  if (debug_bundle_io) {
+    debug_print_jets_output(std::cerr, "bundle.subjets", bundle.subjets->available(), result.subjets);
+  }
   return result;
 }
 

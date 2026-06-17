@@ -96,7 +96,7 @@ Example using a local validation file:
 ```bash
 build/nano_run \
   --input-files /store/mc/RunIISummer20UL18NanoAODv9/TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/120000/87DEE912-70CF-A549-B10B-1A229B256E88.root \
-  --output-file run/muon_2018_test.root \
+  --output-file muon_2018_test.root \
   --config configs/run/muon_2018_v9.yaml \
   --channel muon \
   --num-events 5000
