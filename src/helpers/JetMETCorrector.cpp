@@ -798,28 +798,6 @@ void JetMETCorrector::apply_event(Event &event, const JmeEventResult &result, Jm
 
   apply_nominal_jets(event, "SubJet", result.subjets.pt(jet_var), result.subjets.mass(jet_var));
 
-  auto fatjet_jets = event.collection("FatJet").objects();
-  auto subjets = event.collection("SubJet").objects();
-  for (auto &fj : fatjet_jets) {
-    std::vector<ObjectView> linked_subjets;
-    for (const auto attr : {"subJetIdx1", "subJetIdx2"}) {
-      const auto idx = fj.get<std::int32_t>(attr);
-      if (idx >= 0 && static_cast<std::size_t>(idx) < subjets.size()) {
-        linked_subjets.push_back(subjets[idx]);
-      }
-    }
-    linked_subjets = sort_by_pt(std::move(linked_subjets));
-    fj.set("subjets", linked_subjets);
-    fj.set("is_qualified", true);
-
-    auto groomed = LorentzVector();
-    for (const auto &sj : linked_subjets) {
-      groomed += sj.p4();
-    }
-    const auto corrected_sdmass = static_cast<float>(std::abs(groomed.M()));
-    fj.set("msoftdrop", corrected_sdmass);
-  }
-
   event.set("met_pt", static_cast<float>(met_result.pt(met_var)));
   event.set("met_phi", static_cast<float>(met_result.phi(met_var)));
 }

@@ -54,6 +54,23 @@ std::vector<ObjectView> subjets_for(const ObjectView &fatjet, Event &event, std:
   return out;
 }
 
+LorentzVector p4_from_raw_values(const ObjectView &obj) {
+  const auto raw_pt = safe_object_float(obj, "rawPt", obj.pt());
+  const auto raw_mass = safe_object_float(obj, "rawMass", obj.mass());
+  return ObjectView::LorentzVector(raw_pt, obj.eta(), obj.phi(), raw_mass);
+}
+
+void prepare_raw_kinematics(Event &event, std::string_view object_name) {
+  auto objects = event.collection(object_name).objects();
+  for (auto &obj : objects) {
+    const auto raw_scale = 1.0f - safe_object_float(obj, "rawFactor", 0.0f);
+    const auto raw_pt = obj.pt() * raw_scale;
+    const auto raw_mass = obj.mass() * raw_scale;
+    obj.set("rawPt", raw_pt);
+    obj.set("rawMass", raw_mass);
+  }
+}
+
 }  // namespace
 
 HeavyFlavBaseProducer::HeavyFlavBaseProducer(ProducerConfig config) : config_(std::move(config)) {
@@ -92,11 +109,12 @@ void HeavyFlavBaseProducer::begin_file() {
   top_pt_weight_producer_->begin_file(out_);
 
   out_.branch("fj_1_is_qualified", false);
-  for (const auto *name : {"fj_1_pt", "fj_1_eta", "fj_1_phi", "fj_1_mass", "fj_1_sdmass",
+  for (const auto *name : {"fj_1_pt", "fj_1_eta", "fj_1_phi", "fj_1_mass", "fj_1_rawpt", "fj_1_sdmass",
+                           "fj_1_sdmass_uncorrected",
                            "fj_1_tau1", "fj_1_tau2", "fj_1_tau3",
                            "fj_1_tau4", "fj_1_deltaR_sj12", "fj_1_sj1_pt", "fj_1_sj1_eta", "fj_1_sj1_phi",
-                           "fj_1_sj1_mass", "fj_1_sj1_btagdeepcsv", "fj_1_sj2_pt", "fj_1_sj2_eta", "fj_1_sj2_phi",
-                           "fj_1_sj2_mass", "fj_1_sj2_btagdeepcsv"}) {
+                           "fj_1_sj1_mass", "fj_1_sj1_rawpt", "fj_1_sj1_btagdeepcsv", "fj_1_sj2_pt", "fj_1_sj2_eta",
+                           "fj_1_sj2_phi", "fj_1_sj2_mass", "fj_1_sj2_rawpt", "fj_1_sj2_btagdeepcsv"}) {
     out_.branch(name, 0.0f);
   }
   for (const auto &tagger : config_.tagger_names) {
@@ -149,6 +167,9 @@ std::vector<BranchSpec> HeavyFlavBaseProducer::default_schema(const ProducerConf
 // pt/mass.
 void HeavyFlavBaseProducer::prepare_common_objects(Event &event) const {
   select_leptons(event);
+  prepare_raw_kinematics(event, "Jet");
+  prepare_raw_kinematics(event, fatjet_name_);
+  prepare_raw_kinematics(event, subjet_name_);
   auto fatjets = event.collection(fatjet_name_).objects();
   load_gen_history(event, fatjets);
 }
@@ -208,10 +229,13 @@ void HeavyFlavBaseProducer::apply_jme_and_select_jets(Event &event, const JmeEve
     const auto subjets = subjets_for(fj, event, subjet_name_);
     fj.set("subjets", subjets);
     LorentzVector subjet_sum;
+    LorentzVector raw_subjet_sum;
     for (const auto &sj : subjets) {
       subjet_sum += sj.p4();
+      raw_subjet_sum += p4_from_raw_values(sj);
     }
     fj.set("msoftdrop", static_cast<float>(subjet_sum.M()));
+    fj.set("msoftdrop_uncorrected", static_cast<float>(raw_subjet_sum.M()));
   }
 
   fatjets = filter_objects(sort_by_pt(std::move(fatjets)), [&](const auto &fj) {
@@ -318,7 +342,9 @@ void HeavyFlavBaseProducer::fill_fatjet_info(Event &event, const std::vector<Obj
   out_.fill("fj_1_eta", fj.eta());
   out_.fill("fj_1_phi", fj.phi());
   out_.fill("fj_1_mass", fj.mass());
+  out_.fill("fj_1_rawpt", safe_object_float(fj, "rawPt", -1.0f));
   out_.fill("fj_1_sdmass", fj.get<float>("msoftdrop"));
+  out_.fill("fj_1_sdmass_uncorrected", safe_object_float(fj, "msoftdrop_uncorrected", 0.0f));
   out_.fill("fj_1_tau1", safe_object_float(fj, "tau1", 0.0f));
   out_.fill("fj_1_tau2", safe_object_float(fj, "tau2", 0.0f));
   out_.fill("fj_1_tau3", safe_object_float(fj, "tau3", 0.0f));
@@ -331,6 +357,7 @@ void HeavyFlavBaseProducer::fill_fatjet_info(Event &event, const std::vector<Obj
     out_.fill("fj_1_sj1_eta", subjets[0].eta());
     out_.fill("fj_1_sj1_phi", subjets[0].phi());
     out_.fill("fj_1_sj1_mass", subjets[0].mass());
+    out_.fill("fj_1_sj1_rawpt", safe_object_float(subjets[0], "rawPt", -1.0f));
     out_.fill("fj_1_sj1_btagdeepcsv", safe_object_float(subjets[0], "btagDeepB", -1.0f));
     out_.fill("fj_1_sj1_nbhadrons", safe_object_int(subjets[0], "nBHadrons", -1));
     out_.fill("fj_1_sj1_nchadrons", safe_object_int(subjets[0], "nCHadrons", -1));
@@ -342,6 +369,7 @@ void HeavyFlavBaseProducer::fill_fatjet_info(Event &event, const std::vector<Obj
     out_.fill("fj_1_sj2_eta", subjets[1].eta());
     out_.fill("fj_1_sj2_phi", subjets[1].phi());
     out_.fill("fj_1_sj2_mass", subjets[1].mass());
+    out_.fill("fj_1_sj2_rawpt", safe_object_float(subjets[1], "rawPt", -1.0f));
     out_.fill("fj_1_sj2_btagdeepcsv", safe_object_float(subjets[1], "btagDeepB", -1.0f));
     out_.fill("fj_1_sj2_nbhadrons", safe_object_int(subjets[1], "nBHadrons", -1));
     out_.fill("fj_1_sj2_nchadrons", safe_object_int(subjets[1], "nCHadrons", -1));
