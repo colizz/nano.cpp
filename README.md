@@ -125,6 +125,7 @@ Create a Condor work directory from a sample YAML:
 ```bash
 build/nano_make_condor \
   --input-yaml configs/samples/muon_2018_v9_MC.yaml \
+  --job-dir jobs/condor_muon_2018_v9_MC \
   --output-dir /path/to/output \
   --config configs/run/muon_2018_v9.yaml \
   --channel muon \
@@ -132,12 +133,12 @@ build/nano_make_condor \
   --num-events -1
 ```
 
-This creates a directory under `run/`, copies a merged config snapshot, packs the repository, and writes `submit.jdl`.
+This creates the requested Condor work directory, copies a merged config snapshot, packs the repository, and writes `submit.jdl`.
 
 Submit manually:
 
 ```bash
-cd run/condor_muon_2018_<pid>
+cd jobs/condor_muon_2018_v9_MC
 condor_submit submit.jdl
 ```
 
@@ -147,7 +148,7 @@ Each job runs `process.sh`, unpacks the repository, builds it if needed, prints 
 <output-dir>/pieces/
 ```
 
-Merge Condor pieces with:
+After jobs finish, return to the repository root and merge Condor pieces with:
 
 ```bash
 build/nano_merge /path/to/output
