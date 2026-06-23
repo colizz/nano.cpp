@@ -238,7 +238,8 @@ int main(int argc, char **argv) {
       throw std::runtime_error("Failed to create repository tarball");
     }
 
-    const auto output_root = nano::runtime::starts_with(cli.output_dir, "/eos/") ? fs::path(cli.output_dir) : fs::absolute(cli.output_dir);
+    const auto output_base = nano::runtime::starts_with(cli.output_dir, "/eos/") ? fs::path(cli.output_dir) : fs::absolute(cli.output_dir);
+    const auto output_root = output_base / "pieces";
     fs::create_directories(output_root);
 
     const auto sample_map = nano::runtime::parse_sample_yaml(cli.input_yaml);
@@ -290,6 +291,8 @@ int main(int argc, char **argv) {
 
     fs::create_directories(workdir / "logs");
     std::cout << "Created condor workdir: " << workdir << "\n";
+    std::cout << "Output base dir: " << output_base << "\n";
+    std::cout << "Piece output dir: " << output_root << "\n";
     std::cout << "Job manifest: " << (workdir / "job_manifest.json") << "\n";
     std::cout << "Job index list: " << (workdir / "job_indices.txt") << "\n";
     std::cout << "Jobs: " << jobs.size() << "\n";

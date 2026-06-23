@@ -116,15 +116,7 @@ Useful options:
 
 ## Run Validation
 
-```bash
-ctest --test-dir build -R muon_validation --output-on-failure
-```
-
-The validation report is written to:
-
-```text
-build/test-muon-validation/key_branch_compare_report.txt
-```
+See `tests/README.md`.
 
 ## Make Condor Jobs
 
@@ -153,6 +145,24 @@ Each job runs `process.sh`, unpacks the repository, builds it if needed, prints 
 
 ```text
 <output-dir>/pieces/
+```
+
+Merge Condor pieces with:
+
+```bash
+build/nano_merge /path/to/output
+```
+
+Pass the base output directory, not the `pieces/` subdirectory. `nano_merge` reads input pieces from:
+
+```text
+<output-dir>/pieces/
+```
+
+It first writes merged ROOT files to a temporary directory, then copies all merged outputs back under:
+
+```text
+<output-dir>/
 ```
 
 ## Adding Channels

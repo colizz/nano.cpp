@@ -31,8 +31,8 @@ constexpr std::array kAllowedVariations = {
     std::string_view{"met_down"},
 };
 
-constexpr std::string_view kUsage = "Usage: nano_merge <root_dir>\n"
-                                   "  <root_dir>: directory containing NanoAOD piece files (nickname_idx*.root)";
+constexpr std::string_view kUsage = "Usage: nano_merge <output_dir>\n"
+                                   "  <output_dir>: base Condor output directory; piece files are read from <output_dir>/pieces";
 
 std::string shell_quote(const fs::path &path) {
   std::string s = path.string();
@@ -110,6 +110,23 @@ void merge_group(const std::string &nickname, const std::string &variation, cons
   merge_or_copy(sorted_files, output);
 }
 
+void copy_tree_contents(const fs::path &from, const fs::path &to) {
+  fs::create_directories(to);
+  for (const auto &entry : fs::recursive_directory_iterator(from)) {
+    const auto relative = fs::relative(entry.path(), from);
+    const auto target = to / relative;
+    if (entry.is_directory()) {
+      fs::create_directories(target);
+      continue;
+    }
+    if (!entry.is_regular_file()) {
+      continue;
+    }
+    fs::create_directories(target.parent_path());
+    fs::copy_file(entry.path(), target, fs::copy_options::overwrite_existing);
+  }
+}
+
 }  // namespace
 
 int main(int argc, char **argv) {
@@ -119,9 +136,15 @@ int main(int argc, char **argv) {
       return 1;
     }
 
-    const fs::path root_dir = fs::path(argv[1]);
-    if (!fs::exists(root_dir) || !fs::is_directory(root_dir)) {
-      std::cerr << "Input path must be a directory: " << root_dir << "\n";
+    const fs::path output_dir = fs::path(argv[1]);
+    if (!fs::exists(output_dir) || !fs::is_directory(output_dir)) {
+      std::cerr << "Input path must be a directory: " << output_dir << "\n";
+      return 1;
+    }
+
+    const fs::path pieces_dir = output_dir / "pieces";
+    if (!fs::exists(pieces_dir) || !fs::is_directory(pieces_dir)) {
+      std::cerr << "Missing pieces directory: " << pieces_dir << "\n";
       return 1;
     }
 
@@ -137,7 +160,8 @@ int main(int argc, char **argv) {
     // Pattern2: nickname_idx_variation.root
     const std::regex var_re(R"(^(.*)_([0-9]+)_([A-Za-z0-9_]+)\.root$)");
 
-    for (const auto &entry : fs::recursive_directory_iterator(root_dir)) {
+    std::cout << "Reading piece files from: " << pieces_dir << "\n";
+    for (const auto &entry : fs::recursive_directory_iterator(pieces_dir)) {
       if (!entry.is_regular_file()) {
         continue;
       }
@@ -170,7 +194,7 @@ int main(int argc, char **argv) {
     }
 
     if (total_root == 0) {
-      std::cerr << "No matching ROOT files in: " << root_dir << "\n";
+      std::cerr << "No matching ROOT files in: " << pieces_dir << "\n";
       return 1;
     }
 
@@ -216,6 +240,11 @@ int main(int argc, char **argv) {
     std::cout << "  copied singleton groups: " << copied_count << "\n";
     std::cout << "  output files written: " << written_files << "\n";
     std::cout << "All outputs written under: " << output_root << "\n";
+    std::cout << "[step] Copying merged outputs from temporary dir to final output dir\n"
+              << "       from: " << output_root << "\n"
+              << "       to:   " << output_dir << "\n";
+    copy_tree_contents(output_root, output_dir);
+    std::cout << "Final merged outputs copied under: " << output_dir << "\n";
     return 0;
   } catch (const std::exception &ex) {
     std::cerr << "nano_merge failed: " << ex.what() << "\n";
