@@ -55,7 +55,8 @@ In practice this means:
   - attach linked subjets to a given fatjet: `fj.set("subjets", linked_subjets);`
 - Channel producers are plain C++ event loops. In the main `analyze()` function, use `return false` to veto an event.
 - A YAML card in `configs/run/` contains all information to guide the run.
-- Corrections use modern correctionlib payloads where possible. JEC and MET corrections build on the CMSJMECalculators project.
+- Corrections use modern correctionlib payloads where possible. JEC and MET corrections build on the
+  [CMSJMECalculators](https://gitlab.cern.ch/cms-analysis/general/CMSJMECalculators) project.
 
 You do not need to write this code or worry about C++ syntax; agents will fill in the implementation, and you only need to review it.
 
@@ -116,7 +117,7 @@ Useful options:
 
 ## Run Validation
 
-See `tests/README.md`.
+See [tests/README.md](tests/README.md).
 
 ## Make Condor Jobs
 
@@ -142,11 +143,7 @@ cd jobs/condor_muon_2018_v9_MC
 condor_submit submit.jdl
 ```
 
-Each job runs `process.sh`, unpacks the repository, builds it if needed, prints the full `nano_run` command, and writes one ROOT piece under:
-
-```text
-<output-dir>/pieces/
-```
+Each job runs `process.sh`, unpacks the repository, builds it if needed, prints the full `nano_run` command, and writes one ROOT piece under `<output-dir>/pieces/`.
 
 After jobs finish, return to the repository root and merge Condor pieces with:
 
@@ -154,17 +151,9 @@ After jobs finish, return to the repository root and merge Condor pieces with:
 build/nano_merge /path/to/output
 ```
 
-Pass the base output directory, not the `pieces/` subdirectory. `nano_merge` reads input pieces from:
+Pass the base output directory, not the `pieces/` subdirectory. `nano_merge` reads input pieces from `<output-dir>/pieces/`.
 
-```text
-<output-dir>/pieces/
-```
-
-It first writes merged ROOT files to a temporary directory, then copies all merged outputs back under:
-
-```text
-<output-dir>/
-```
+It first writes merged ROOT files to a temporary directory, then copies all merged outputs back under `<output-dir>/`.
 
 ## Adding Channels
 
