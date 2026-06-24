@@ -278,6 +278,13 @@ std::string resolve_object_jer_tag(std::string_view object_tag, std::string_view
   return std::string(object_tag);
 }
 
+std::string resolve_object_jec_tag(std::string_view object_tag, std::string_view inherited_tag) {
+  if (object_tag.empty() || object_tag == "inherit") {
+    return std::string(inherited_tag);
+  }
+  return std::string(object_tag);
+}
+
 std::vector<ObjectView> sort_by_pt(std::vector<ObjectView> objects) {
   std::sort(objects.begin(), objects.end(), [](const auto &a, const auto &b) { return a.pt() > b.pt(); });
   return objects;
@@ -360,8 +367,12 @@ JetMETCorrector::PayloadPaths JetMETCorrector::resolve_payload_paths(const Produ
 JetMETCorrector::CalculatorBundle JetMETCorrector::make_bundle(bool is_mc) const {
   CalculatorBundle bundle;
   const auto jet_jec_tag = is_mc ? era_setup_.jet.jec_tag_mc : era_setup_.jet.jec_tag_data;
-  const auto fatjet_jec_tag = is_mc ? era_setup_.fatjet.jec_tag_mc : era_setup_.fatjet.jec_tag_data;
-  const auto subjet_jec_tag = is_mc ? era_setup_.subjet.jec_tag_mc : era_setup_.subjet.jec_tag_data;
+  const auto fatjet_jec_tag =
+      is_mc ? resolve_object_jec_tag(era_setup_.fatjet.jec_tag_mc, jet_jec_tag)
+            : resolve_object_jec_tag(era_setup_.fatjet.jec_tag_data, jet_jec_tag);
+  const auto subjet_jec_tag =
+      is_mc ? resolve_object_jec_tag(era_setup_.subjet.jec_tag_mc, jet_jec_tag)
+            : resolve_object_jec_tag(era_setup_.subjet.jec_tag_data, jet_jec_tag);
   const auto jet_jer_tag = is_mc ? resolve_object_jer_tag(era_setup_.jet.jer_tag_mc, "") : std::string{};
   const auto fatjet_jer_tag = is_mc ? resolve_object_jer_tag(era_setup_.fatjet.jer_tag_mc, jet_jer_tag) : std::string{};
   const auto subjet_jer_tag = is_mc ? resolve_object_jer_tag(era_setup_.subjet.jer_tag_mc, jet_jer_tag) : std::string{};

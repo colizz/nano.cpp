@@ -6,25 +6,40 @@ in the official NanoAODv9 correctionlib JSONs. It also derives AK4PFchs as a
 cross-check, because AK4PFchs has an official JSON on CVMFS.
 
 The derived payload is intentionally smaller than the official CVMFS
-``jet_jerc.json.gz``. For an AK4PFchs 2018 MC validation payload, it contains:
+``jet_jerc.json.gz``. For an AK4PFchs 2018 MC+DATA validation payload, it
+contains:
 
 - JEC levels:
   ``Summer19UL18_V5_MC_L1FastJet_AK4PFchs``
   ``Summer19UL18_V5_MC_L2Relative_AK4PFchs``
   ``Summer19UL18_V5_MC_L3Absolute_AK4PFchs``
   ``Summer19UL18_V5_MC_L2L3Residual_AK4PFchs``
+  ``Summer19UL18_V5_DATA_L1FastJet_AK4PFchs``
+  ``Summer19UL18_V5_DATA_L2Relative_AK4PFchs``
+  ``Summer19UL18_V5_DATA_L3Absolute_AK4PFchs``
+  ``Summer19UL18_V5_DATA_L2L3Residual_AK4PFchs``
 - JES total uncertainty:
   ``Summer19UL18_V5_MC_Total_AK4PFchs``
+  ``Summer19UL18_V5_DATA_Total_AK4PFchs``
 - JER:
   ``Summer19UL18_JRV3_MC_PtResolution_AK4PFchs``
   ``Summer19UL18_JRV3_MC_ScaleFactor_AK4PFchs``
   ``Summer19UL18_JRV3_MC_SFUncertainty_AK4PFchs``
-- One compound correction:
+- Compound corrections:
   ``Summer19UL18_V5_MC_L1L2L3Res_AK4PFchs``
+  ``Summer19UL18_V5_DATA_L1L2L3Res_AK4PFchs``
 
 It does not derive the full set of official JES uncertainty sources such as
 ``AbsoluteStat``, ``FlavorQCD``, ``PileUpPtBB``, or ``Regrouped_*``. Only
 ``Total`` is included.
+
+For DATA, official correctionlib payloads use a unified tag such as
+``Summer19UL18_V5_DATA``. Legacy text tarballs are split by run era, such as
+``Summer19UL18_RunA_V5_DATA`` through ``Summer19UL18_RunD_V5_DATA``. The script
+can merge those run-era tarballs into the unified output tag by wrapping
+run-dependent levels in a ``run`` binning. In the command line, ``--jec-tag`` is
+the output correction tag, while ``--jec-member-tag`` or
+``--jec-data-member-tags`` are the text-file prefixes inside the tarballs.
 
 Usage examples
 --------------
@@ -33,12 +48,16 @@ Source the LCG runtime before running:
 
   source /cvmfs/sft.cern.ch/lcg/views/LCG_108/x86_64-el9-gcc13-opt/setup.sh
 
-Validate 2018 AK4PFchs against the official CVMFS latest JSON, including JEC
-compound, JRV3 PtResolution, JRV3 ScaleFactor, and JRV3 SFUncertainty:
+Validate 2018 AK4PFchs against the official CVMFS latest JSON, including MC JEC,
+DATA JEC, JRV3 PtResolution, JRV3 ScaleFactor, and JRV3 SFUncertainty:
 
   python tools/derive_jec_from_txt.py validate-ak4chs \
     --jec-tar /tmp/Summer19UL18_V5_MC.tar.gz \
     --jec-tag Summer19UL18_V5_MC \
+    --jec-data-tars /tmp/Summer19UL18_RunA_V5_DATA.tar.gz,/tmp/Summer19UL18_RunB_V5_DATA.tar.gz,/tmp/Summer19UL18_RunC_V5_DATA.tar.gz,/tmp/Summer19UL18_RunD_V5_DATA.tar.gz \
+    --jec-data-member-tags Summer19UL18_RunA_V5_DATA,Summer19UL18_RunB_V5_DATA,Summer19UL18_RunC_V5_DATA,Summer19UL18_RunD_V5_DATA \
+    --jec-data-tag Summer19UL18_V5_DATA \
+    --jec-data-run-edges 315252,316998,319313,320394,325274 \
     --jer-tar /tmp/Summer19UL18_JRV3_MC.tar.gz \
     --jer-tag Summer19UL18_JRV3_MC \
     --official-json /cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run2-2018-UL-NanoAODv9/latest/jet_jerc.json.gz \
@@ -50,10 +69,94 @@ Derive the 2018 AK4PFPuppi payload used for local subjet corrections:
   python tools/derive_jec_from_txt.py derive \
     --jec-tar /tmp/Summer19UL18_V5_MC.tar.gz \
     --jec-tag Summer19UL18_V5_MC \
+    --jec-data-tars /tmp/Summer19UL18_RunA_V5_DATA.tar.gz,/tmp/Summer19UL18_RunB_V5_DATA.tar.gz,/tmp/Summer19UL18_RunC_V5_DATA.tar.gz,/tmp/Summer19UL18_RunD_V5_DATA.tar.gz \
+    --jec-data-member-tags Summer19UL18_RunA_V5_DATA,Summer19UL18_RunB_V5_DATA,Summer19UL18_RunC_V5_DATA,Summer19UL18_RunD_V5_DATA \
+    --jec-data-tag Summer19UL18_V5_DATA \
+    --jec-data-run-edges 315252,316998,319313,320394,325274 \
     --algo AK4PFPuppi \
     --jer-tar /tmp/Summer19UL18_JRV3_MC.tar.gz \
     --jer-tag Summer19UL18_JRV3_MC \
     --output data/jme-derived/Run2-2018-UL-NanoAODv9/2026-06-25/jet_jerc.json.gz
+
+The AK4PFPuppi command above writes MC JEC, JER, DATA JEC, and both MC/DATA
+compound corrections in one output JSON.
+
+Validate and derive the other Run-2 NanoAODv9 eras in the same way:
+
+  python tools/derive_jec_from_txt.py validate-ak4chs \
+    --jec-tar /tmp/Summer19UL17_V5_MC.tar.gz \
+    --jec-tag Summer19UL17_V5_MC \
+    --jec-data-tars /tmp/Summer19UL17_RunB_V5_DATA.tar.gz,/tmp/Summer19UL17_RunC_V5_DATA.tar.gz,/tmp/Summer19UL17_RunD_V5_DATA.tar.gz,/tmp/Summer19UL17_RunE_V5_DATA.tar.gz,/tmp/Summer19UL17_RunF_V5_DATA.tar.gz \
+    --jec-data-member-tags Summer19UL17_RunB_V5_DATA,Summer19UL17_RunC_V5_DATA,Summer19UL17_RunD_V5_DATA,Summer19UL17_RunE_V5_DATA,Summer19UL17_RunF_V5_DATA \
+    --jec-data-tag Summer19UL17_V5_DATA \
+    --jec-data-run-edges 297020,299337,302030,303435,304911,306463 \
+    --jer-tar /tmp/Summer19UL17_JRV4_MC.tar.gz \
+    --jer-tag Summer19UL17_JRV4_MC \
+    --official-json /cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run2-2017-UL-NanoAODv9/latest/jet_jerc.json.gz \
+    --n-points 1000 \
+    --tolerance 1e-5
+
+  python tools/derive_jec_from_txt.py derive \
+    --jec-tar /tmp/Summer19UL17_V5_MC.tar.gz \
+    --jec-tag Summer19UL17_V5_MC \
+    --jec-data-tars /tmp/Summer19UL17_RunB_V5_DATA.tar.gz,/tmp/Summer19UL17_RunC_V5_DATA.tar.gz,/tmp/Summer19UL17_RunD_V5_DATA.tar.gz,/tmp/Summer19UL17_RunE_V5_DATA.tar.gz,/tmp/Summer19UL17_RunF_V5_DATA.tar.gz \
+    --jec-data-member-tags Summer19UL17_RunB_V5_DATA,Summer19UL17_RunC_V5_DATA,Summer19UL17_RunD_V5_DATA,Summer19UL17_RunE_V5_DATA,Summer19UL17_RunF_V5_DATA \
+    --jec-data-tag Summer19UL17_V5_DATA \
+    --jec-data-run-edges 297020,299337,302030,303435,304911,306463 \
+    --algo AK4PFPuppi \
+    --jer-tar /tmp/Summer19UL17_JRV4_MC.tar.gz \
+    --jer-tag Summer19UL17_JRV4_MC \
+    --output data/jme-derived/Run2-2017-UL-NanoAODv9/2026-06-25/jet_jerc.json.gz
+
+  python tools/derive_jec_from_txt.py validate-ak4chs \
+    --jec-tar /tmp/Summer19UL16_V7_MC.tar.gz \
+    --jec-tag Summer19UL16_V7_MC \
+    --jec-data-tars /tmp/Summer19UL16_RunFGH_V7_DATA.tar.gz \
+    --jec-data-member-tags Summer19UL16_RunFGH_V7_DATA \
+    --jec-data-tag Summer19UL16_V7_DATA \
+    --jec-data-run-edges 278769,284045 \
+    --jer-tar /tmp/Summer20UL16_JRV5_MC.tar.gz \
+    --jer-tag Summer20UL16_JRV5_MC \
+    --official-json /cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run2-2016postVFP-UL-NanoAODv9/latest/jet_jerc.json.gz \
+    --n-points 1000 \
+    --tolerance 1e-5
+
+  python tools/derive_jec_from_txt.py derive \
+    --jec-tar /tmp/Summer19UL16_V7_MC.tar.gz \
+    --jec-tag Summer19UL16_V7_MC \
+    --jec-data-tars /tmp/Summer19UL16_RunFGH_V7_DATA.tar.gz \
+    --jec-data-member-tags Summer19UL16_RunFGH_V7_DATA \
+    --jec-data-tag Summer19UL16_V7_DATA \
+    --jec-data-run-edges 278769,284045 \
+    --algo AK4PFPuppi \
+    --jer-tar /tmp/Summer20UL16_JRV5_MC.tar.gz \
+    --jer-tag Summer20UL16_JRV5_MC \
+    --output data/jme-derived/Run2-2016postVFP-UL-NanoAODv9/2026-06-25/jet_jerc.json.gz
+
+  python tools/derive_jec_from_txt.py validate-ak4chs \
+    --jec-tar /tmp/Summer19UL16APV_V7_MC.tar.gz \
+    --jec-tag Summer19UL16APV_V7_MC \
+    --jec-data-tars /tmp/Summer19UL16APV_RunBCD_V7_DATA.tar.gz,/tmp/Summer19UL16APV_RunEF_V7_DATA.tar.gz \
+    --jec-data-member-tags Summer19UL16APV_RunBCD_V7_DATA,Summer19UL16APV_RunEF_V7_DATA \
+    --jec-data-tag Summer19UL16APV_V7_DATA \
+    --jec-data-run-edges 272007,276831,278808 \
+    --jer-tar /tmp/Summer20UL16APV_JRV5_MC.tar.gz \
+    --jer-tag Summer20UL16APV_JRV5_MC \
+    --official-json /cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run2-2016preVFP-UL-NanoAODv9/latest/jet_jerc.json.gz \
+    --n-points 1000 \
+    --tolerance 1e-5
+
+  python tools/derive_jec_from_txt.py derive \
+    --jec-tar /tmp/Summer19UL16APV_V7_MC.tar.gz \
+    --jec-tag Summer19UL16APV_V7_MC \
+    --jec-data-tars /tmp/Summer19UL16APV_RunBCD_V7_DATA.tar.gz,/tmp/Summer19UL16APV_RunEF_V7_DATA.tar.gz \
+    --jec-data-member-tags Summer19UL16APV_RunBCD_V7_DATA,Summer19UL16APV_RunEF_V7_DATA \
+    --jec-data-tag Summer19UL16APV_V7_DATA \
+    --jec-data-run-edges 272007,276831,278808 \
+    --algo AK4PFPuppi \
+    --jer-tar /tmp/Summer20UL16APV_JRV5_MC.tar.gz \
+    --jer-tag Summer20UL16APV_JRV5_MC \
+    --output data/jme-derived/Run2-2016preVFP-UL-NanoAODv9/2026-06-25/jet_jerc.json.gz
 """
 
 from __future__ import annotations
@@ -79,13 +182,16 @@ VAR_DESCRIPTIONS = {
     "JetPhi": "azimuth of the jet",
     "JetPt": "pT of the jet before specific correction (for JER and uncertainties: after all corrections applied)",
     "Rho": "energy density rho (as measure of PU)",
+    "run": "run number",
     "systematic": "JER scale factor systematic direction",
 }
 
 FORMULA_SYMBOLS = ["x", "y", "z", "t", "u", "v"]
 INPUT_ORDER = {
     frozenset(["JetEta", "JetPt"]): ["JetEta", "JetPt"],
+    frozenset(["run", "JetEta", "JetPt"]): ["run", "JetEta", "JetPt"],
     frozenset(["JetA", "JetEta", "JetPt", "Rho"]): ["JetA", "JetEta", "JetPt", "Rho"],
+    frozenset(["run", "JetA", "JetEta", "JetPt", "Rho"]): ["run", "JetA", "JetEta", "JetPt", "Rho"],
     frozenset(["JetEta", "JetPt", "Rho"]): ["JetEta", "JetPt", "Rho"],
 }
 
@@ -158,6 +264,9 @@ def clamp_formula_expression(formula: str, formula_vars: list[str]) -> str:
         .replace("TMath::Exp", "exp")
         .replace("TMath::Power", "pow")
         .replace("TMath::Sqrt", "sqrt")
+        .replace("TMath::Max", "max")
+        .replace("TMath::Min", "min")
+        .replace("TMath::Abs", "abs")
     )
     offset = 2 * len(formula_vars)
 
@@ -386,12 +495,82 @@ def make_compound(tag: str, algo: str, levels: list[str], inputs: list[str]) -> 
     }
 
 
-def build_payload(jec_tar: Path, tag: str, algo: str, jec_levels: list[str], jer_tar: Path | None, jer_tag: str | None) -> dict[str, Any]:
+def wrap_run_binning(corrections: list[dict[str, Any]], run_edges: list[float], name: str, description: str) -> dict[str, Any]:
+    if len(corrections) + 1 != len(run_edges):
+        raise ValueError(f"Run edges length {len(run_edges)} does not match {len(corrections)} run payloads for {name}")
+    base_inputs = corrections[0]["inputs"]
+    for correction in corrections[1:]:
+        if correction["inputs"] != base_inputs:
+            raise ValueError(f"Inconsistent inputs while building run-binned correction {name}")
+    return {
+        "name": name,
+        "description": description,
+        "version": 3,
+        "inputs": [variable("run")] + base_inputs,
+        "output": {"name": "correction", "type": "real"},
+        "data": {
+            "nodetype": "binning",
+            "input": "run",
+            "edges": run_edges,
+            "content": [correction["data"] for correction in corrections],
+            "flow": "clamp",
+        },
+    }
+
+
+def build_data_payload(
+    jec_tars: list[Path],
+    member_tags: list[str],
+    tag: str,
+    algo: str,
+    jec_levels: list[str],
+    run_edges: list[float],
+) -> dict[str, Any]:
+    if len(jec_tars) != len(member_tags):
+        raise ValueError("DATA JEC tar and member tag counts do not match")
+    corrections = []
+    run_binned = False
+    for level in jec_levels:
+        parsed = [
+            parse_formula_table(read_member(jec_tar, f"{member_tag}_{level}_{algo}.txt"), f"{tag}_{level}_{algo}", f"{level} for {algo}")
+            for jec_tar, member_tag in zip(jec_tars, member_tags)
+        ]
+        if all(correction["data"] == parsed[0]["data"] for correction in parsed[1:]):
+            corrections.append(parsed[0])
+        else:
+            run_binned = True
+            corrections.append(wrap_run_binning(parsed, run_edges, f"{tag}_{level}_{algo}", f"{level} for {algo}"))
+    parsed_unc = [
+        parse_uncertainty_table(read_member(jec_tar, f"{member_tag}_Uncertainty_{algo}.txt"), f"{tag}_Total_{algo}", f"Total JES uncertainty for {algo}")
+        for jec_tar, member_tag in zip(jec_tars, member_tags)
+    ]
+    if all(correction["data"] == parsed_unc[0]["data"] for correction in parsed_unc[1:]):
+        corrections.append(parsed_unc[0])
+    else:
+        run_binned = True
+        corrections.append(wrap_run_binning(parsed_unc, run_edges, f"{tag}_Total_{algo}", f"Total JES uncertainty for {algo}"))
+    inputs = ["JetA", "JetEta", "JetPt", "Rho"] if jec_levels[0] == "L1FastJet" else ["JetEta", "JetPt"]
+    if run_binned:
+        inputs = ["run"] + inputs
+    compounds = [make_compound(tag, algo, jec_levels, inputs)]
+    return {"schema_version": 2, "corrections": corrections, "compound_corrections": compounds}
+
+
+def build_payload(
+    jec_tar: Path,
+    tag: str,
+    algo: str,
+    jec_levels: list[str],
+    jer_tar: Path | None,
+    jer_tag: str | None,
+    jec_member_tag: str | None = None,
+) -> dict[str, Any]:
+    member_tag = jec_member_tag or tag
     corrections = []
     for level in jec_levels:
-        member = f"{tag}_{level}_{algo}.txt"
+        member = f"{member_tag}_{level}_{algo}.txt"
         corrections.append(parse_formula_table(read_member(jec_tar, member), f"{tag}_{level}_{algo}", f"{level} for {algo}"))
-    unc_member = f"{tag}_Uncertainty_{algo}.txt"
+    unc_member = f"{member_tag}_Uncertainty_{algo}.txt"
     corrections.append(parse_uncertainty_table(read_member(jec_tar, unc_member), f"{tag}_Total_{algo}", f"Total JES uncertainty for {algo}"))
     compounds = [make_compound(tag, algo, jec_levels, ["JetA", "JetEta", "JetPt", "Rho"] if jec_levels[0] == "L1FastJet" else ["JetEta", "JetPt"])]
     if jer_tar and jer_tag:
@@ -428,9 +607,49 @@ def write_payload(payload: dict[str, Any], output: Path) -> None:
         json.dump(payload, handle, separators=(",", ":"))
 
 
+def split_csv(value: str | None) -> list[str]:
+    if not value:
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def split_csv_paths(value: str | None) -> list[Path]:
+    return [Path(item) for item in split_csv(value)]
+
+
+def split_csv_floats(value: str | None) -> list[float]:
+    return [float(item) for item in split_csv(value)]
+
+
+def evaluate_compound(compound, values: dict[str, float]) -> float:
+    return compound.evaluate(*[values[item.name] for item in compound.inputs])
+
+
+def add_data_payload_from_args(payload: dict[str, Any], args: argparse.Namespace, algo: str, jec_levels: list[str]) -> None:
+    data_tars = split_csv_paths(args.jec_data_tars)
+    if not args.jec_data_tag and not data_tars:
+        return
+    if not args.jec_data_tag or not data_tars:
+        raise ValueError("--jec-data-tag and --jec-data-tars must be provided together")
+    data_member_tags = split_csv(args.jec_data_member_tags)
+    data_run_edges = split_csv_floats(args.jec_data_run_edges)
+    data_payload = build_data_payload(
+        data_tars,
+        data_member_tags,
+        args.jec_data_tag,
+        algo,
+        jec_levels,
+        data_run_edges,
+    )
+    payload["corrections"].extend(data_payload["corrections"])
+    payload["compound_corrections"].extend(data_payload["compound_corrections"])
+
+
 def validate_ak4chs(args: argparse.Namespace) -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         generated = Path(tmpdir) / "jet_jerc.json.gz"
+        data_tars = split_csv_paths(args.jec_data_tars)
+        data_run_edges = split_csv_floats(args.jec_data_run_edges)
         payload = build_payload(
             args.jec_tar,
             args.jec_tag,
@@ -438,7 +657,9 @@ def validate_ak4chs(args: argparse.Namespace) -> None:
             ["L1FastJet", "L2Relative", "L3Absolute", "L2L3Residual"],
             args.jer_tar,
             args.jer_tag,
+            args.jec_member_tag,
         )
+        add_data_payload_from_args(payload, args, "AK4PFchs", ["L1FastJet", "L2Relative", "L3Absolute", "L2L3Residual"])
         write_payload(payload, generated)
         derived = correctionlib.CorrectionSet.from_file(str(generated))
         official = correctionlib.CorrectionSet.from_file(str(args.official_json))
@@ -455,6 +676,21 @@ def validate_ak4chs(args: argparse.Namespace) -> None:
         print(f"AK4PFchs compound max_abs_diff={max_abs:.6g} over {args.n_points} points")
         if max_abs > args.tolerance:
             raise SystemExit(f"validation failed: max_abs_diff={max_abs} > {args.tolerance}")
+        if args.jec_data_tag and data_tars:
+            data_max_abs = 0.0
+            for _ in range(args.n_points):
+                run = rng.uniform(data_run_edges[0], data_run_edges[-1] - 1.0)
+                area = rng.uniform(0.1, 1.2)
+                eta = rng.uniform(-5.0, 5.0)
+                pt = 10 ** rng.uniform(math.log10(15.0), math.log10(2000.0))
+                rho = rng.uniform(0.0, 60.0)
+                values = {"run": run, "JetA": area, "JetEta": eta, "JetPt": pt, "Rho": rho}
+                got = evaluate_compound(derived.compound[f"{args.jec_data_tag}_L1L2L3Res_AK4PFchs"], values)
+                exp = evaluate_compound(official.compound[f"{args.jec_data_tag}_L1L2L3Res_AK4PFchs"], values)
+                data_max_abs = max(data_max_abs, abs(got - exp))
+            print(f"AK4PFchs DATA compound max_abs_diff={data_max_abs:.6g} over {args.n_points} points")
+            if data_max_abs > args.tolerance:
+                raise SystemExit(f"validation failed: DATA max_abs_diff={data_max_abs} > {args.tolerance}")
         if args.jer_tar and args.jer_tag:
             ptres_name = f"{args.jer_tag}_PtResolution_AK4PFchs"
             sf_name = f"{args.jer_tag}_ScaleFactor_AK4PFchs"
@@ -487,7 +723,17 @@ def validate_ak4chs(args: argparse.Namespace) -> None:
 
 
 def derive(args: argparse.Namespace) -> None:
-    payload = build_payload(args.jec_tar, args.jec_tag, args.algo, args.jec_levels.split(","), args.jer_tar, args.jer_tag)
+    jec_levels = args.jec_levels.split(",")
+    payload = build_payload(
+        args.jec_tar,
+        args.jec_tag,
+        args.algo,
+        jec_levels,
+        args.jer_tar,
+        args.jer_tag,
+        args.jec_member_tag,
+    )
+    add_data_payload_from_args(payload, args, args.algo, jec_levels)
     write_payload(payload, args.output)
     print(f"wrote {args.output}")
 
@@ -498,6 +744,11 @@ def main() -> None:
     p_derive = sub.add_parser("derive")
     p_derive.add_argument("--jec-tar", type=Path, required=True)
     p_derive.add_argument("--jec-tag", required=True)
+    p_derive.add_argument("--jec-member-tag")
+    p_derive.add_argument("--jec-data-tars")
+    p_derive.add_argument("--jec-data-tag")
+    p_derive.add_argument("--jec-data-member-tags")
+    p_derive.add_argument("--jec-data-run-edges")
     p_derive.add_argument("--algo", required=True)
     p_derive.add_argument("--jec-levels", default="L2Relative,L3Absolute")
     p_derive.add_argument("--jer-tar", type=Path)
@@ -508,6 +759,11 @@ def main() -> None:
     p_validate = sub.add_parser("validate-ak4chs")
     p_validate.add_argument("--jec-tar", type=Path, required=True)
     p_validate.add_argument("--jec-tag", required=True)
+    p_validate.add_argument("--jec-member-tag")
+    p_validate.add_argument("--jec-data-tars")
+    p_validate.add_argument("--jec-data-tag")
+    p_validate.add_argument("--jec-data-member-tags")
+    p_validate.add_argument("--jec-data-run-edges")
     p_validate.add_argument("--jer-tar", type=Path)
     p_validate.add_argument("--jer-tag")
     p_validate.add_argument("--official-json", type=Path, required=True)

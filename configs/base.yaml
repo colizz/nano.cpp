@@ -48,7 +48,7 @@ jec:
   # is the final subdirectory under `payload_dir`; local paths such as
   # `data/jme-derived/...` are resolved relative to the repository root.
   #
-  # `jer_tag_mc: inherit` on fatjet/subjet means use `jet.jer_tag_mc`.
+  # `inherit` on fatjet/subjet JEC/JER tags means use the corresponding jet tag.
   # `jer_tag_mc: none` means do not apply JER smearing for that object.
   campaigns:
     2016APV_NanoAODv9:
@@ -64,8 +64,8 @@ jec:
         jer_tag_mc: Summer20UL16APV_JRV5_MC
       fatjet:
         algo: AK8PFPuppi
-        jec_tag_mc: Summer19UL16APV_V7_MC
-        jec_tag_data: Summer19UL16APV_V7_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
       subjet:
         # Derived from legacy JME txt tarballs because official Run2 NanoAODv9
@@ -73,8 +73,8 @@ jec:
         payload_subdir: data/jme-derived/Run2-2016preVFP-UL-NanoAODv9/2026-06-25
         jerc_file: jet_jerc.json.gz
         algo: AK4PFPuppi
-        jec_tag_mc: Summer19UL16APV_V7_MC
-        jec_tag_data: Summer19UL16APV_RunBCD_V7_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
     2016_NanoAODv9:
       payload_subdir: Run2-2016postVFP-UL-NanoAODv9
@@ -89,8 +89,8 @@ jec:
         jer_tag_mc: Summer20UL16_JRV5_MC
       fatjet:
         algo: AK8PFPuppi
-        jec_tag_mc: Summer19UL16_V7_MC
-        jec_tag_data: Summer19UL16_V7_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
       subjet:
         # Derived from legacy JME txt tarballs because official Run2 NanoAODv9
@@ -98,8 +98,8 @@ jec:
         payload_subdir: data/jme-derived/Run2-2016postVFP-UL-NanoAODv9/2026-06-25
         jerc_file: jet_jerc.json.gz
         algo: AK4PFPuppi
-        jec_tag_mc: Summer19UL16_V7_MC
-        jec_tag_data: Summer19UL16_RunFGH_V7_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
     2017_NanoAODv9:
       payload_subdir: Run2-2017-UL-NanoAODv9
@@ -114,8 +114,8 @@ jec:
         jer_tag_mc: Summer19UL17_JRV4_MC
       fatjet:
         algo: AK8PFPuppi
-        jec_tag_mc: Summer19UL17_V5_MC
-        jec_tag_data: Summer19UL17_V5_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
       subjet:
         # Derived from legacy JME txt tarballs because official Run2 NanoAODv9
@@ -123,8 +123,8 @@ jec:
         payload_subdir: data/jme-derived/Run2-2017-UL-NanoAODv9/2026-06-25
         jerc_file: jet_jerc.json.gz
         algo: AK4PFPuppi
-        jec_tag_mc: Summer19UL17_V5_MC
-        jec_tag_data: Summer19UL17_RunB_V5_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
     2018_NanoAODv9:
       payload_subdir: Run2-2018-UL-NanoAODv9
@@ -139,8 +139,8 @@ jec:
         jer_tag_mc: Summer19UL18_JRV3_MC
       fatjet:
         algo: AK8PFPuppi
-        jec_tag_mc: Summer19UL18_V5_MC
-        jec_tag_data: Summer19UL18_V5_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
       subjet:
         # Derived from legacy JME txt tarballs because official Run2 NanoAODv9
@@ -148,8 +148,8 @@ jec:
         payload_subdir: data/jme-derived/Run2-2018-UL-NanoAODv9/2026-06-25
         jerc_file: jet_jerc.json.gz
         algo: AK4PFPuppi
-        jec_tag_mc: Summer19UL18_V5_MC
-        jec_tag_data: Summer19UL18_RunA_V5_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
     2022_NanoAODv12:
       payload_subdir: Run3-22CDSep23-Summer22-NanoAODv12
@@ -164,13 +164,13 @@ jec:
         jer_tag_mc: Summer22_22Sep2023_JRV2_MC
       fatjet:
         algo: AK8PFPuppi
-        jec_tag_mc: Summer22_22Sep2023_V4_MC
-        jec_tag_data: Summer22_22Sep2023_V4_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
       subjet:
         algo: AK4PFPuppi
-        jec_tag_mc: Summer22_22Sep2023_V4_MC
-        jec_tag_data: Summer22_22Sep2023_V4_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
     2022EE_NanoAODv12:
       payload_subdir: Run3-22EFGSep23-Summer22EE-NanoAODv12
@@ -185,13 +185,13 @@ jec:
         jer_tag_mc: Summer22EE_22Sep2023_JRV2_MC
       fatjet:
         algo: AK8PFPuppi
-        jec_tag_mc: Summer22EE_22Sep2023_V4_MC
-        jec_tag_data: Summer22EE_22Sep2023_V4_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
       subjet:
         algo: AK4PFPuppi
-        jec_tag_mc: Summer22EE_22Sep2023_V4_MC
-        jec_tag_data: Summer22EE_22Sep2023_V4_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
     2023_NanoAODv12:
       payload_subdir: Run3-23CSep23-Summer23-NanoAODv12
@@ -206,13 +206,13 @@ jec:
         jer_tag_mc: Summer23Prompt23_RunCv1234_JRV2_MC
       fatjet:
         algo: AK8PFPuppi
-        jec_tag_mc: Summer23Prompt23_V4_MC
-        jec_tag_data: Summer23Prompt23_V4_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
       subjet:
         algo: AK4PFPuppi
-        jec_tag_mc: Summer23Prompt23_V4_MC
-        jec_tag_data: Summer23Prompt23_V4_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
     2023BPix_NanoAODv12:
       payload_subdir: Run3-23DSep23-Summer23BPix-NanoAODv12
@@ -227,13 +227,13 @@ jec:
         jer_tag_mc: Summer23BPixPrompt23_RunD_JRV2_MC
       fatjet:
         algo: AK8PFPuppi
-        jec_tag_mc: Summer23BPixPrompt23_V4_MC
-        jec_tag_data: Summer23BPixPrompt23_V4_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
       subjet:
         algo: AK4PFPuppi
-        jec_tag_mc: Summer23BPixPrompt23_V4_MC
-        jec_tag_data: Summer23BPixPrompt23_V4_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
     2016APV_NanoAODv15:
       payload_subdir: Run2-2016preVFP-UL-NanoAODv15
@@ -248,13 +248,13 @@ jec:
         jer_tag_mc: Summer20UL16APV_JRV5_MC
       fatjet:
         algo: AK8PFPuppi
-        jec_tag_mc: Summer20UL16APVNanoV15_V1_MC
-        jec_tag_data: Summer20UL16APVNanoV15_V1_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
       subjet:
         algo: AK4PFPuppi
-        jec_tag_mc: Summer20UL16APVNanoV15_V1_MC
-        jec_tag_data: Summer20UL16APVNanoV15_V1_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
     2016_NanoAODv15:
       payload_subdir: Run2-2016postVFP-UL-NanoAODv15
@@ -269,13 +269,13 @@ jec:
         jer_tag_mc: Summer20UL16_JRV5_MC
       fatjet:
         algo: AK8PFPuppi
-        jec_tag_mc: Summer20UL16NanoV15_V1_MC
-        jec_tag_data: Summer20UL16NanoV15_V1_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
       subjet:
         algo: AK4PFPuppi
-        jec_tag_mc: Summer20UL16NanoV15_V1_MC
-        jec_tag_data: Summer20UL16NanoV15_V1_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
     2017_NanoAODv15:
       payload_subdir: Run2-2017-UL-NanoAODv15
@@ -290,13 +290,13 @@ jec:
         jer_tag_mc: Summer19UL17_JRV4_MC
       fatjet:
         algo: AK8PFPuppi
-        jec_tag_mc: Summer20UL17NanoV15_V1_MC
-        jec_tag_data: Summer20UL17NanoV15_V1_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
       subjet:
         algo: AK4PFPuppi
-        jec_tag_mc: Summer20UL17NanoV15_V1_MC
-        jec_tag_data: Summer20UL17NanoV15_V1_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
     2018_NanoAODv15:
       payload_subdir: Run2-2018-UL-NanoAODv15
@@ -311,13 +311,13 @@ jec:
         jer_tag_mc: Summer19UL18_JRV3_MC
       fatjet:
         algo: AK8PFPuppi
-        jec_tag_mc: Summer20UL18NanoV15_V1_MC
-        jec_tag_data: Summer20UL18NanoV15_V1_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
       subjet:
         algo: AK4PFPuppi
-        jec_tag_mc: Summer20UL18NanoV15_V1_MC
-        jec_tag_data: Summer20UL18NanoV15_V1_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
     2024_NanoAODv15:
       payload_subdir: Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15
@@ -332,13 +332,13 @@ jec:
         jer_tag_mc: Summer24Prompt24_JRV1_MC
       fatjet:
         algo: AK8PFPuppi
-        jec_tag_mc: Summer24Prompt24_V3_MC
-        jec_tag_data: Summer24Prompt24_V3_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
       subjet:
         algo: AK4PFPuppi
-        jec_tag_mc: Summer24Prompt24_V3_MC
-        jec_tag_data: Summer24Prompt24_V3_DATA
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
         jer_tag_mc: inherit
 
 # Event-level jet veto map. The C++ producer only evaluates this for Run 3

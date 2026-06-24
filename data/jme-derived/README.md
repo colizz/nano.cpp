@@ -22,10 +22,10 @@ The payloads do not include the full official list of JES uncertainty sources su
 
 | Directory | MC JEC tag | DATA JEC tag | MC JER tag |
 | --- | --- | --- | --- |
-| `Run2-2016preVFP-UL-NanoAODv9/2026-06-25` | `Summer19UL16APV_V7_MC` | `Summer19UL16APV_RunBCD_V7_DATA` | `Summer20UL16APV_JRV5_MC` |
-| `Run2-2016postVFP-UL-NanoAODv9/2026-06-25` | `Summer19UL16_V7_MC` | `Summer19UL16_RunFGH_V7_DATA` | `Summer20UL16_JRV5_MC` |
-| `Run2-2017-UL-NanoAODv9/2026-06-25` | `Summer19UL17_V5_MC` | `Summer19UL17_RunB_V5_DATA` | `Summer19UL17_JRV4_MC` |
-| `Run2-2018-UL-NanoAODv9/2026-06-25` | `Summer19UL18_V5_MC` | `Summer19UL18_RunA_V5_DATA` | `Summer19UL18_JRV3_MC` |
+| `Run2-2016preVFP-UL-NanoAODv9/2026-06-25` | `Summer19UL16APV_V7_MC` | `Summer19UL16APV_V7_DATA` | `Summer20UL16APV_JRV5_MC` |
+| `Run2-2016postVFP-UL-NanoAODv9/2026-06-25` | `Summer19UL16_V7_MC` | `Summer19UL16_V7_DATA` | `Summer20UL16_JRV5_MC` |
+| `Run2-2017-UL-NanoAODv9/2026-06-25` | `Summer19UL17_V5_MC` | `Summer19UL17_V5_DATA` | `Summer19UL17_JRV4_MC` |
+| `Run2-2018-UL-NanoAODv9/2026-06-25` | `Summer19UL18_V5_MC` | `Summer19UL18_V5_DATA` | `Summer19UL18_JRV3_MC` |
 
 ### Validation
 
