@@ -70,8 +70,7 @@ private:
   static PayloadPaths resolve_payload_paths(const ProducerConfig &config, const EraSetup &setup);
 
   CalculatorBundle make_bundle(bool is_mc) const;
-  std::size_t jet_variation_index(JmeVariation variation, bool is_mc) const;
-  std::size_t met_variation_index(const CalculatorBundle &bundle, JmeVariation variation, bool is_mc) const;
+  std::size_t variation_index(const std::vector<std::string> &available, JmeVariation variation, bool is_mc) const;
   const CalculatorBundle &bundle_for_event(const Event &event) const;
   bool should_compute_jet_veto() const;
 

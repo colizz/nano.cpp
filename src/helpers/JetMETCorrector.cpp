@@ -342,7 +342,7 @@ JetMETCorrector::PayloadPaths JetMETCorrector::resolve_payload_paths(const Produ
   const auto resolve_json = [&](const ObjectSetup &object, const std::string &default_file) {
     const auto payload_subdir = object.payload_subdir.empty() ? setup.payload_subdir : object.payload_subdir;
     const auto payload_dir = is_local_payload_path(payload_subdir)
-                                 ? join_path(resolve_local_payload_path(payload_subdir), "latest")
+                                 ? resolve_local_payload_path(payload_subdir)
                                  : join_path(join_path(config.jme_payload_dir, payload_subdir), "latest");
     const auto jerc_file = object.jerc_file.empty() ? default_file : object.jerc_file;
     return join_path(payload_dir, jerc_file);
@@ -445,52 +445,78 @@ JetMETCorrector::CalculatorBundle JetMETCorrector::make_bundle(bool is_mc) const
 }
 
 
-std::size_t JetMETCorrector::jet_variation_index(JmeVariation variation, bool is_mc) const {
+std::size_t JetMETCorrector::variation_index(const std::vector<std::string> &available, JmeVariation variation, bool is_mc) const {
   if (!is_mc) {
     return 0U;
   }
-  const auto jet_jer_tag = resolve_object_jer_tag(era_setup_.jet.jer_tag_mc, "");
-  const auto jes_offset = 1U + (jet_jer_tag.empty() ? 0U : 2U);
-  switch (variation) {
-    case JmeVariation::JerUp:
-      return jet_jer_tag.empty() ? 0U : 1U;
-    case JmeVariation::JerDown:
-      return jet_jer_tag.empty() ? 0U : 2U;
-    case JmeVariation::JesUp:
-      return jes_offset;
-    case JmeVariation::JesDown:
-      return jes_offset + 1U;
-    case JmeVariation::Nominal:
-    case JmeVariation::MetUp:
-    case JmeVariation::MetDown:
-      return 0U;
-  }
-  return 0U;
-}
 
-std::size_t JetMETCorrector::met_variation_index(const CalculatorBundle &bundle, JmeVariation variation, bool is_mc) const {
-  if (!is_mc) {
-    return 0U;
-  }
-  const auto jet_jer_tag = resolve_object_jer_tag(era_setup_.jet.jer_tag_mc, "");
-  const auto jes_offset = 1U + (jet_jer_tag.empty() ? 0U : 2U);
+  const auto find_label = [&](const std::string &label) -> std::size_t {
+    const auto it = std::find(available.begin(), available.end(), label);
+    return it == available.end() ? available.size() : static_cast<std::size_t>(std::distance(available.begin(), it));
+  };
+
+  const auto find_jes = [&](std::string_view direction) -> std::size_t {
+    for (const auto &source : era_setup_.jes_uncertainties) {
+      const auto index = find_label("jes" + source + std::string(direction));
+      if (index < available.size()) {
+        return index;
+      }
+    }
+    for (std::size_t i = 0; i < available.size(); ++i) {
+      if (available[i].rfind("jes", 0) == 0 && available[i].size() >= direction.size() &&
+          available[i].compare(available[i].size() - direction.size(), direction.size(), direction) == 0) {
+        return i;
+      }
+    }
+    return available.size();
+  };
+
+  std::size_t index = 0U;
+  bool allow_missing = false;
   switch (variation) {
     case JmeVariation::JerUp:
-      return jet_jer_tag.empty() ? 0U : 1U;
+      index = find_label("jerup");
+      allow_missing = true;
+      break;
     case JmeVariation::JerDown:
-      return jet_jer_tag.empty() ? 0U : 2U;
+      index = find_label("jerdown");
+      allow_missing = true;
+      break;
     case JmeVariation::JesUp:
-      return jes_offset;
+      index = find_jes("up");
+      break;
     case JmeVariation::JesDown:
-      return jes_offset + 1U;
+      index = find_jes("down");
+      break;
     case JmeVariation::MetUp:
-      return bundle.met->available().size() - 2U;
+      index = find_label("unclustEnup");
+      allow_missing = true;
+      break;
     case JmeVariation::MetDown:
-      return bundle.met->available().size() - 1U;
+      index = find_label("unclustEndown");
+      allow_missing = true;
+      break;
     case JmeVariation::Nominal:
-      return 0U;
+      index = find_label("nominal");
+      break;
   }
-  return 0U;
+
+  if (index < available.size()) {
+    return index;
+  }
+  if (allow_missing) {
+    return 0U;
+  }
+
+  std::string labels;
+  for (std::size_t i = 0; i < available.size(); ++i) {
+    if (i > 0) {
+      labels += ", ";
+    }
+    labels += available[i];
+  }
+  throw std::runtime_error("Requested JME variation " + std::string(variation_name(variation)) +
+                           " is not available. Calculator labels: [" + labels + "]");
 }
 
 const JetMETCorrector::CalculatorBundle &JetMETCorrector::bundle_for_event(const Event &event) const {
@@ -785,18 +811,19 @@ JmeEventResult JetMETCorrector::compute_event(Event &event) const {
 
 void JetMETCorrector::apply_event(Event &event, const JmeEventResult &result, JmeVariation variation) const {
   const auto &bundle = bundle_for_event(event);
-  const auto jet_var = jet_variation_index(variation, result.is_mc);
-  const auto met_var = met_variation_index(bundle, variation, result.is_mc);
-  const auto &met_result =
-      (variation == JmeVariation::JerUp || variation == JmeVariation::JerDown) ? result.met_smeared : result.met;
+  const auto ak4_var = variation_index(bundle.ak4_jets->available(), variation, result.is_mc);
+  const auto fatjet_var = variation_index(bundle.fatjet_jets->available(), variation, result.is_mc);
+  const auto subjet_var = variation_index(bundle.subjets->available(), variation, result.is_mc);
+  const auto use_smeared_met = variation == JmeVariation::JerUp || variation == JmeVariation::JerDown;
+  const auto met_available = use_smeared_met && bundle.met_smeared ? bundle.met_smeared->available() : bundle.met->available();
+  const auto met_var = variation_index(met_available, variation, result.is_mc);
+  const auto &met_result = use_smeared_met ? result.met_smeared : result.met;
 
-  const auto jet_pt = to_rvec(event.vector<float>("Jet_pt"));
-  const auto jet_raw = to_rvec(event.vector<float>("Jet_rawFactor"));
-  apply_nominal_jets(event, "Jet", result.ak4_jets.pt(jet_var), result.ak4_jets.mass(jet_var));
+  apply_nominal_jets(event, "Jet", result.ak4_jets.pt(ak4_var), result.ak4_jets.mass(ak4_var));
 
-  apply_nominal_jets(event, "FatJet", result.fatjets.pt(jet_var), result.fatjets.mass(jet_var));
+  apply_nominal_jets(event, "FatJet", result.fatjets.pt(fatjet_var), result.fatjets.mass(fatjet_var));
 
-  apply_nominal_jets(event, "SubJet", result.subjets.pt(jet_var), result.subjets.mass(jet_var));
+  apply_nominal_jets(event, "SubJet", result.subjets.pt(subjet_var), result.subjets.mass(subjet_var));
 
   event.set("met_pt", static_cast<float>(met_result.pt(met_var)));
   event.set("met_phi", static_cast<float>(met_result.phi(met_var)));

@@ -70,12 +70,12 @@ jec:
       subjet:
         # Derived from legacy JME txt tarballs because official Run2 NanoAODv9
         # correctionlib payloads do not provide AK4PFPuppi subjet JEC.
-        payload_subdir: data/jme-derived/Run2-2016preVFP-UL-NanoAODv9
+        payload_subdir: data/jme-derived/Run2-2016preVFP-UL-NanoAODv9/2026-06-25
         jerc_file: jet_jerc.json.gz
         algo: AK4PFPuppi
         jec_tag_mc: Summer19UL16APV_V7_MC
         jec_tag_data: Summer19UL16APV_RunBCD_V7_DATA
-        jer_tag_mc: Summer20UL16APV_JRV3_MC
+        jer_tag_mc: inherit
     2016_NanoAODv9:
       payload_subdir: Run2-2016postVFP-UL-NanoAODv9
       jet_jerc_file: jet_jerc.json.gz
@@ -95,12 +95,12 @@ jec:
       subjet:
         # Derived from legacy JME txt tarballs because official Run2 NanoAODv9
         # correctionlib payloads do not provide AK4PFPuppi subjet JEC.
-        payload_subdir: data/jme-derived/Run2-2016postVFP-UL-NanoAODv9
+        payload_subdir: data/jme-derived/Run2-2016postVFP-UL-NanoAODv9/2026-06-25
         jerc_file: jet_jerc.json.gz
         algo: AK4PFPuppi
         jec_tag_mc: Summer19UL16_V7_MC
         jec_tag_data: Summer19UL16_RunFGH_V7_DATA
-        jer_tag_mc: Summer20UL16_JRV3_MC
+        jer_tag_mc: inherit
     2017_NanoAODv9:
       payload_subdir: Run2-2017-UL-NanoAODv9
       jet_jerc_file: jet_jerc.json.gz
@@ -120,12 +120,12 @@ jec:
       subjet:
         # Derived from legacy JME txt tarballs because official Run2 NanoAODv9
         # correctionlib payloads do not provide AK4PFPuppi subjet JEC.
-        payload_subdir: data/jme-derived/Run2-2017-UL-NanoAODv9
+        payload_subdir: data/jme-derived/Run2-2017-UL-NanoAODv9/2026-06-25
         jerc_file: jet_jerc.json.gz
         algo: AK4PFPuppi
         jec_tag_mc: Summer19UL17_V5_MC
         jec_tag_data: Summer19UL17_RunB_V5_DATA
-        jer_tag_mc: none
+        jer_tag_mc: inherit
     2018_NanoAODv9:
       payload_subdir: Run2-2018-UL-NanoAODv9
       jet_jerc_file: jet_jerc.json.gz
@@ -145,12 +145,12 @@ jec:
       subjet:
         # Derived from legacy JME txt tarballs because official Run2 NanoAODv9
         # correctionlib payloads do not provide AK4PFPuppi subjet JEC.
-        payload_subdir: data/jme-derived/Run2-2018-UL-NanoAODv9
+        payload_subdir: data/jme-derived/Run2-2018-UL-NanoAODv9/2026-06-25
         jerc_file: jet_jerc.json.gz
         algo: AK4PFPuppi
         jec_tag_mc: Summer19UL18_V5_MC
         jec_tag_data: Summer19UL18_RunA_V5_DATA
-        jer_tag_mc: Summer19UL18_JRV2_MC
+        jer_tag_mc: inherit
     2022_NanoAODv12:
       payload_subdir: Run3-22CDSep23-Summer22-NanoAODv12
       jet_jerc_file: jet_jerc.json.gz
