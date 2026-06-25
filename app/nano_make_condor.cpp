@@ -24,6 +24,7 @@ struct CliOptions {
   std::string channel = "muon";
   std::string tree_name = "Events";
   std::string variations;
+  bool run_data = false;
   long long num_events = -1;
   std::size_t nfiles_per_job = 1;
   std::unordered_map<std::string, std::string> overrides;
@@ -53,6 +54,8 @@ CliOptions parse_args(int argc, char **argv) {
       opts.tree_name = need_value("--tree-name");
     } else if (arg == "--variations") {
       opts.variations = need_value("--variations");
+    } else if (arg == "--run-data") {
+      opts.run_data = true;
     } else if (arg == "--num-events") {
       opts.num_events = std::stoll(need_value("--num-events"));
     } else if (arg == "--nfiles-per-job") {
@@ -72,6 +75,13 @@ CliOptions parse_args(int argc, char **argv) {
     throw std::runtime_error("Usage: nano_make_condor --input-yaml <samples.yaml> --job-dir <condor-dir> --output-dir <dir> --config <card.yaml> [--nfiles-per-job 1] [--variations nominal,jes_up,...]");
   }
   return opts;
+}
+
+void validate_data_variations(const CliOptions &cli) {
+  if (!cli.run_data || cli.variations.empty() || cli.variations == "nominal") {
+    return;
+  }
+  throw std::runtime_error("--run-data does not support JME variations. If --variations is used with --run-data, it must be the single value 'nominal'; otherwise omit --variations.");
 }
 
 std::string write_merged_config(const fs::path &path, const YAML::Node &settings) {
@@ -210,6 +220,7 @@ void write_process_script(const fs::path &path, const fs::path &template_dir) {
 int main(int argc, char **argv) {
   try {
     const auto cli = parse_args(argc, argv);
+    validate_data_variations(cli);
     auto settings = nano::runtime::load_config_with_extends(cli.config_file);
     for (const auto &[key, value] : cli.overrides) {
       nano::runtime::apply_override(settings, key, value);
@@ -279,6 +290,7 @@ int main(int argc, char **argv) {
     }
 
     const auto variations_arg = cli.variations.empty() ? std::string("__none__") : cli.variations;
+    const auto run_data_arg = cli.run_data ? std::string("true") : std::string("false");
     const auto submit_jdl = render_template(
         template_dir / "submit.jdl.in",
         {
@@ -286,6 +298,7 @@ int main(int argc, char **argv) {
             {"@NUM_EVENTS@", std::to_string(cli.num_events)},
             {"@CHANNEL@", cli.channel},
             {"@VARIATIONS@", variations_arg},
+            {"@RUN_DATA@", run_data_arg},
         });
     write_text_file(workdir / "submit.jdl", submit_jdl);
 

@@ -16,5 +16,5 @@ log = logs/$(Cluster).log
 
 request_cpus = 1
 
-arguments = $(job_index) @TREE_NAME@ @NUM_EVENTS@ config_snapshot.yaml @CHANNEL@ @VARIATIONS@
+arguments = $(job_index) @TREE_NAME@ @NUM_EVENTS@ config_snapshot.yaml @CHANNEL@ @VARIATIONS@ @RUN_DATA@
 queue job_index from job_indices.txt

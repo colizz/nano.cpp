@@ -26,6 +26,7 @@ struct CliOptions {
   std::string channel = "muon";
   std::string config_file;
   std::string variations;
+  bool run_data = false;
   std::unordered_map<std::string, std::string> overrides;
 };
 
@@ -53,6 +54,8 @@ CliOptions parse_args(int argc, char **argv) {
       opts.config_file = need_value("--config");
     } else if (arg == "--variations") {
       opts.variations = need_value("--variations");
+    } else if (arg == "--run-data") {
+      opts.run_data = true;
     } else if (arg == "--set") {
       const auto kv = need_value("--set");
       const auto pos = kv.find('=');
@@ -66,9 +69,16 @@ CliOptions parse_args(int argc, char **argv) {
   }
 
   if (opts.input_files.empty() || opts.output_file.empty() || opts.config_file.empty()) {
-    throw std::runtime_error("Usage: nano_run --input-files <files> --output-file <out.root> --config <card.yaml> [--channel muon] [--num-events -1] [--variations nominal,jes_up,...] [--set key=value]");
+    throw std::runtime_error("Usage: nano_run --input-files <files> --output-file <out.root> --config <card.yaml> [--channel muon] [--num-events -1] [--run-data] [--variations nominal,jes_up,...] [--set key=value]");
   }
   return opts;
+}
+
+void validate_data_variations(const CliOptions &cli) {
+  if (!cli.run_data || cli.variations.empty() || cli.variations == "nominal") {
+    return;
+  }
+  throw std::runtime_error("--run-data does not support JME variations. If --variations is used with --run-data, it must be the single value 'nominal'; otherwise omit --variations.");
 }
 
 nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &channel) {
@@ -288,6 +298,14 @@ std::string variation_output_path(const std::string &output_file, nano::JmeVaria
   return (parent / (stem + suffix + extension)).string();
 }
 
+std::string data_lumi_mask_path(const YAML::Node &settings, const nano::ProducerConfig &config) {
+  const auto masks = settings["data_lumi_masks"];
+  if (!masks || !masks[config.era]) {
+    throw std::runtime_error("Missing data_lumi_masks entry for era " + config.era + " in config");
+  }
+  return masks[config.era].as<std::string>();
+}
+
 void process_one_file(const std::string &input_file, const std::string &output_file, const CliOptions &cli,
                       const YAML::Node &settings) {
   auto input = std::unique_ptr<TFile>(TFile::Open(input_file.c_str(), "READ"));
@@ -300,27 +318,31 @@ void process_one_file(const std::string &input_file, const std::string &output_f
   }
 
   const auto config = make_config(settings, cli.channel);
+  const auto lumi_mask = cli.run_data ? std::make_unique<nano::runtime::LumiMask>(nano::runtime::LumiMask::from_file(data_lumi_mask_path(settings, config)))
+                                      : nullptr;
   auto producer = make_producer(config);
   producer->begin_file();
 
   nano::RootOutputFile output(output_file);
   output.book_events(producer->output());
 
-  const auto entry_list = nano::runtime::build_entry_list(*tree, config.selection, cli.num_events);
+  const auto entry_list = nano::runtime::build_entry_list(*tree, config.selection, cli.num_events, lumi_mask.get());
   nano::NanoReader reader(*tree, nano::BranchSchema(nano::HeavyFlavBaseProducer::default_schema(config)));
 
   std::size_t accepted = 0;
+  std::set<nano::runtime::RunLumi> selected_lumis;
   for (const auto entry : entry_list) {
     nano::Event event(reader, static_cast<std::size_t>(entry));
     if (!producer->analyze(event)) {
       continue;
     }
     output.fill_event(producer->output());
+    selected_lumis.insert({event.scalar<std::uint32_t>("run"), event.scalar<std::uint32_t>("luminosityBlock")});
     ++accepted;
   }
 
-  nano::runtime::copy_selected_tree(*input, output.file(), "Runs");
-  nano::runtime::copy_selected_tree(*input, output.file(), "LuminosityBlocks");
+  nano::runtime::copy_filtered_runs_tree(*input, output.file(), selected_lumis);
+  nano::runtime::copy_filtered_luminosity_blocks_tree(*input, output.file(), selected_lumis);
   output.write();
 
   std::cout << "input=" << input_file << " processed=" << entry_list.size() << " accepted=" << accepted << " output=" << output_file << "\n";
@@ -339,6 +361,8 @@ std::vector<std::string> process_one_file_variations(const std::string &input_fi
   }
 
   const auto config = make_config(settings, cli.channel);
+  const auto lumi_mask = cli.run_data ? std::make_unique<nano::runtime::LumiMask>(nano::runtime::LumiMask::from_file(data_lumi_mask_path(settings, config)))
+                                      : nullptr;
   auto producer_base = make_producer(config);
   auto *producer = dynamic_cast<nano::HeavyFlavMuonSampleProducer *>(producer_base.get());
   if (!producer) {
@@ -351,6 +375,7 @@ std::vector<std::string> process_one_file_variations(const std::string &input_fi
     std::string file_name;
     std::unique_ptr<nano::RootOutputFile> output;
     std::size_t accepted = 0;
+    std::set<nano::runtime::RunLumi> selected_lumis;
   };
   std::vector<VariationOutput> outputs;
   outputs.reserve(variations.size());
@@ -364,7 +389,7 @@ std::vector<std::string> process_one_file_variations(const std::string &input_fi
     outputs.push_back({variation, std::move(path), std::move(output), 0U});
   }
 
-  const auto entry_list = nano::runtime::build_entry_list(*tree, config.selection, cli.num_events);
+  const auto entry_list = nano::runtime::build_entry_list(*tree, config.selection, cli.num_events, lumi_mask.get());
   nano::NanoReader reader(*tree, nano::BranchSchema(nano::HeavyFlavBaseProducer::default_schema(config)));
 
   for (const auto entry : entry_list) {
@@ -378,14 +403,15 @@ std::vector<std::string> process_one_file_variations(const std::string &input_fi
         continue;
       }
       item.output->fill_event(producer->output());
+      item.selected_lumis.insert({event.scalar<std::uint32_t>("run"), event.scalar<std::uint32_t>("luminosityBlock")});
       ++item.accepted;
     }
   }
 
   std::vector<std::string> output_files;
   for (auto &item : outputs) {
-    nano::runtime::copy_selected_tree(*input, item.output->file(), "Runs");
-    nano::runtime::copy_selected_tree(*input, item.output->file(), "LuminosityBlocks");
+    nano::runtime::copy_filtered_runs_tree(*input, item.output->file(), item.selected_lumis);
+    nano::runtime::copy_filtered_luminosity_blocks_tree(*input, item.output->file(), item.selected_lumis);
     item.output->write();
     std::cout << "input=" << input_file << " processed=" << entry_list.size() << " accepted=" << item.accepted
               << " variation=" << nano::variation_name(item.variation) << " output=" << item.file_name << "\n";
@@ -399,6 +425,7 @@ std::vector<std::string> process_one_file_variations(const std::string &input_fi
 int main(int argc, char **argv) {
   try {
     const auto cli = parse_args(argc, argv);
+    validate_data_variations(cli);
     auto settings = nano::runtime::load_config_with_extends(cli.config_file);
     for (const auto &[key, value] : cli.overrides) {
       nano::runtime::apply_override(settings, key, value);

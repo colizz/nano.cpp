@@ -29,6 +29,19 @@ output:
   # vector.
   include_lhe_weights: false
 
+# Certified luminosity masks used when `nano_run --run-data` is enabled.
+# Keep these as CVMFS paths so data jobs use the centrally published masks.
+data_lumi_masks:
+  2016APV: /cvmfs/cms-griddata.cern.ch/cat/metadata/DC/Collisions16/latest/13TeV/Legacy_2016/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt
+  2016: /cvmfs/cms-griddata.cern.ch/cat/metadata/DC/Collisions16/latest/13TeV/Legacy_2016/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt
+  2017: /cvmfs/cms-griddata.cern.ch/cat/metadata/DC/Collisions17/latest/13TeV/Legacy_2017/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt
+  2018: /cvmfs/cms-griddata.cern.ch/cat/metadata/DC/Collisions18/latest/13TeV/Legacy_2018/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt
+  2022: /cvmfs/cms-griddata.cern.ch/cat/metadata/DC/Collisions22/latest/Cert_Collisions2022_355100_362760_Golden.json
+  2022EE: /cvmfs/cms-griddata.cern.ch/cat/metadata/DC/Collisions22/latest/Cert_Collisions2022_355100_362760_Golden.json
+  2023: /cvmfs/cms-griddata.cern.ch/cat/metadata/DC/Collisions23/latest/Cert_Collisions2023_366442_370790_Golden.json
+  2023BPix: /cvmfs/cms-griddata.cern.ch/cat/metadata/DC/Collisions23/latest/Cert_Collisions2023_366442_370790_Golden.json
+  2024: /cvmfs/cms-griddata.cern.ch/cat/metadata/DC/Collisions24/latest/Cert_Collisions2024_378981_386951_Golden.json
+
 # Shared JME payload root. Era-specific payload subdirectories are appended to
 # this base path.
 jec:

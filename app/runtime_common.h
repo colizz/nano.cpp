@@ -6,19 +6,25 @@
 #include <TFileMerger.h>
 #include <TLeaf.h>
 #include <TTree.h>
+#include <TTreeReader.h>
+#include <TTreeReaderValue.h>
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <limits>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -26,6 +32,132 @@
 namespace nano::runtime {
 
 namespace fs = std::filesystem;
+
+struct RunLumi {
+  std::uint32_t run = 0;
+  std::uint32_t lumi = 0;
+
+  bool operator<(const RunLumi &other) const {
+    return std::tie(run, lumi) < std::tie(other.run, other.lumi);
+  }
+};
+
+class LumiMask {
+public:
+  static LumiMask from_file(const std::string &path) {
+    std::ifstream input(path);
+    if (!input) {
+      throw std::runtime_error("Failed to open lumi mask JSON: " + path);
+    }
+    std::ostringstream buffer;
+    buffer << input.rdbuf();
+    return parse(buffer.str(), path);
+  }
+
+  bool contains(std::uint32_t run, std::uint32_t lumi) const {
+    const auto it = ranges_.find(run);
+    if (it == ranges_.end()) {
+      return false;
+    }
+    for (const auto &[begin, end] : it->second) {
+      if (begin <= lumi && lumi <= end) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool empty() const { return ranges_.empty(); }
+
+private:
+  using Range = std::pair<std::uint32_t, std::uint32_t>;
+
+  static void skip_ws(const std::string &text, std::size_t &pos) {
+    while (pos < text.size() && std::isspace(static_cast<unsigned char>(text[pos])) != 0) {
+      ++pos;
+    }
+  }
+
+  static void expect(const std::string &text, std::size_t &pos, char expected, const std::string &path) {
+    skip_ws(text, pos);
+    if (pos >= text.size() || text[pos] != expected) {
+      throw std::runtime_error("Malformed lumi mask JSON in " + path + ": expected '" + std::string(1, expected) + "'");
+    }
+    ++pos;
+  }
+
+  static std::uint32_t parse_uint(const std::string &text, std::size_t &pos, const std::string &path) {
+    skip_ws(text, pos);
+    if (pos >= text.size() || std::isdigit(static_cast<unsigned char>(text[pos])) == 0) {
+      throw std::runtime_error("Malformed lumi mask JSON in " + path + ": expected unsigned integer");
+    }
+    std::uint64_t value = 0;
+    while (pos < text.size() && std::isdigit(static_cast<unsigned char>(text[pos])) != 0) {
+      value = value * 10U + static_cast<unsigned>(text[pos] - '0');
+      if (value > std::numeric_limits<std::uint32_t>::max()) {
+        throw std::runtime_error("Malformed lumi mask JSON in " + path + ": integer exceeds uint32 range");
+      }
+      ++pos;
+    }
+    return static_cast<std::uint32_t>(value);
+  }
+
+  static std::uint32_t parse_quoted_uint(const std::string &text, std::size_t &pos, const std::string &path) {
+    expect(text, pos, '"', path);
+    if (pos >= text.size() || std::isdigit(static_cast<unsigned char>(text[pos])) == 0) {
+      throw std::runtime_error("Malformed lumi mask JSON in " + path + ": expected quoted run number");
+    }
+    std::uint64_t value = 0;
+    while (pos < text.size() && std::isdigit(static_cast<unsigned char>(text[pos])) != 0) {
+      value = value * 10U + static_cast<unsigned>(text[pos] - '0');
+      if (value > std::numeric_limits<std::uint32_t>::max()) {
+        throw std::runtime_error("Malformed lumi mask JSON in " + path + ": run exceeds uint32 range");
+      }
+      ++pos;
+    }
+    expect(text, pos, '"', path);
+    return static_cast<std::uint32_t>(value);
+  }
+
+  static LumiMask parse(const std::string &text, const std::string &path) {
+    LumiMask mask;
+    std::size_t pos = 0;
+    expect(text, pos, '{', path);
+    skip_ws(text, pos);
+    while (pos < text.size() && text[pos] != '}') {
+      const auto run = parse_quoted_uint(text, pos, path);
+      expect(text, pos, ':', path);
+      expect(text, pos, '[', path);
+      skip_ws(text, pos);
+      while (pos < text.size() && text[pos] != ']') {
+        expect(text, pos, '[', path);
+        const auto begin = parse_uint(text, pos, path);
+        expect(text, pos, ',', path);
+        const auto end = parse_uint(text, pos, path);
+        expect(text, pos, ']', path);
+        if (end < begin) {
+          throw std::runtime_error("Malformed lumi mask JSON in " + path + ": lumi range end is smaller than begin");
+        }
+        mask.ranges_[run].push_back({begin, end});
+        skip_ws(text, pos);
+        if (pos < text.size() && text[pos] == ',') {
+          ++pos;
+          skip_ws(text, pos);
+        }
+      }
+      expect(text, pos, ']', path);
+      skip_ws(text, pos);
+      if (pos < text.size() && text[pos] == ',') {
+        ++pos;
+        skip_ws(text, pos);
+      }
+    }
+    expect(text, pos, '}', path);
+    return mask;
+  }
+
+  std::map<std::uint32_t, std::vector<Range>> ranges_;
+};
 
 inline std::string trim(std::string value) {
   auto not_space = [](unsigned char ch) { return !std::isspace(ch); };
@@ -306,7 +438,26 @@ inline std::vector<std::string> chunk_join(const std::vector<std::string> &files
   return jobs;
 }
 
-inline std::vector<Long64_t> build_entry_list(TTree &tree, const std::string &cut, long long max_entries) {
+inline std::vector<Long64_t> apply_lumi_mask(TTree &tree, const std::vector<Long64_t> &entries, const LumiMask &mask) {
+  if (mask.empty()) {
+    return entries;
+  }
+  TTreeReader reader(&tree);
+  TTreeReaderValue<UInt_t> run(reader, "run");
+  TTreeReaderValue<UInt_t> lumi(reader, "luminosityBlock");
+  std::vector<Long64_t> filtered;
+  filtered.reserve(entries.size());
+  for (const auto entry : entries) {
+    reader.SetEntry(entry);
+    if (mask.contains(static_cast<std::uint32_t>(*run), static_cast<std::uint32_t>(*lumi))) {
+      filtered.push_back(entry);
+    }
+  }
+  return filtered;
+}
+
+inline std::vector<Long64_t> build_entry_list(TTree &tree, const std::string &cut, long long max_entries,
+                                              const LumiMask *lumi_mask = nullptr) {
   const auto total = tree.GetEntries();
   std::string effective_cut = cut;
   if (max_entries >= 0) {
@@ -321,7 +472,7 @@ inline std::vector<Long64_t> build_entry_list(TTree &tree, const std::string &cu
     for (Long64_t i = 0; i < n; ++i) {
       entries.push_back(i);
     }
-    return entries;
+    return lumi_mask ? apply_lumi_mask(tree, entries, *lumi_mask) : entries;
   }
 
   const std::string list_name = "entrylist_tmp";
@@ -337,7 +488,7 @@ inline std::vector<Long64_t> build_entry_list(TTree &tree, const std::string &cu
     entries.push_back(elist->GetEntry(i));
   }
   gDirectory->Delete((list_name + ";*").c_str());
-  return entries;
+  return lumi_mask ? apply_lumi_mask(tree, entries, *lumi_mask) : entries;
 }
 
 inline void copy_selected_tree(TFile &input_file, TFile &output_file, const char *tree_name) {
@@ -348,6 +499,55 @@ inline void copy_selected_tree(TFile &input_file, TFile &output_file, const char
   output_file.cd();
   auto *output_tree = input_tree->CloneTree(-1, "fast");
   output_tree->Write();
+}
+
+inline void copy_filtered_luminosity_blocks_tree(TFile &input_file, TFile &output_file, const std::set<RunLumi> &selected_lumis) {
+  auto *input_tree = dynamic_cast<TTree *>(input_file.Get("LuminosityBlocks"));
+  if (!input_tree) {
+    return;
+  }
+
+  UInt_t run = 0;
+  UInt_t lumi = 0;
+  input_tree->SetBranchAddress("run", &run);
+  input_tree->SetBranchAddress("luminosityBlock", &lumi);
+
+  output_file.cd();
+  auto *output_tree = input_tree->CloneTree(0);
+  for (Long64_t entry = 0; entry < input_tree->GetEntries(); ++entry) {
+    input_tree->GetEntry(entry);
+    if (selected_lumis.count({static_cast<std::uint32_t>(run), static_cast<std::uint32_t>(lumi)}) != 0U) {
+      output_tree->Fill();
+    }
+  }
+  output_tree->Write();
+  input_tree->ResetBranchAddresses();
+}
+
+inline void copy_filtered_runs_tree(TFile &input_file, TFile &output_file, const std::set<RunLumi> &selected_lumis) {
+  auto *input_tree = dynamic_cast<TTree *>(input_file.Get("Runs"));
+  if (!input_tree) {
+    return;
+  }
+
+  std::set<std::uint32_t> selected_runs;
+  for (const auto &run_lumi : selected_lumis) {
+    selected_runs.insert(run_lumi.run);
+  }
+
+  UInt_t run = 0;
+  input_tree->SetBranchAddress("run", &run);
+
+  output_file.cd();
+  auto *output_tree = input_tree->CloneTree(0);
+  for (Long64_t entry = 0; entry < input_tree->GetEntries(); ++entry) {
+    input_tree->GetEntry(entry);
+    if (selected_runs.count(static_cast<std::uint32_t>(run)) != 0U) {
+      output_tree->Fill();
+    }
+  }
+  output_tree->Write();
+  input_tree->ResetBranchAddresses();
 }
 
 inline void merge_root_files(const std::vector<std::string> &inputs, const std::string &output) {

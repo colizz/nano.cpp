@@ -24,7 +24,8 @@ NUM_EVENTS=$3
 CONFIG=$4
 CHANNEL=$5
 VARIATIONS=$6
-DOWNLOAD_FILE="${DOWNLOAD_FILE:-${7:-true}}"
+RUN_DATA=$7
+DOWNLOAD_FILE="${DOWNLOAD_FILE:-${8:-true}}"
 
 LOCAL_OUTPUT="${WORKDIR}/local_output_${JOB_INDEX}.root"
 
@@ -90,6 +91,9 @@ run_one_input() {
 
   if [[ "${VARIATIONS}" != "__none__" ]]; then
     cmd+=(--variations "${VARIATIONS}")
+  fi
+  if should_download "${RUN_DATA}"; then
+    cmd+=(--run-data)
   fi
 
   printf "Running command:"
