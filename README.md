@@ -105,15 +105,17 @@ build/nano_run \
 
 `--input-files` accepts one file or a comma-separated list. Local paths, `root://...` paths, and `/store/...` paths are supported.
 
+If `--variations` is omitted, it defaults to `nominal`. Outputs are always written with a variation suffix, so the example above writes `muon_2018_test_nominal.root`.
+
 Useful options:
 
 ```bash
 --tree-name Events
 --set output.include_lhe_weights=true
---variations all
+--variations nominal,jes_up,jes_down
 ```
 
-`--variations all` writes the nominal and JME variation outputs in one event loop.
+`--variations` takes a comma-separated list and writes one ROOT file per requested variation. Supported JME names currently include `nominal`, `jes_up`, `jes_down`, `jer_up`, `jer_down`, `met_up`, and `met_down`.
 
 ## Run Validation
 
@@ -143,7 +145,7 @@ cd jobs/condor_muon_2018_v9_MC
 condor_submit submit.jdl
 ```
 
-Each job runs `process.sh`, unpacks the repository, builds it if needed, prints the full `nano_run` command, and writes one ROOT piece under `<output-dir>/pieces/`.
+Each job runs `process.sh`, unpacks the repository, builds it if needed, prints the full `nano_run` command, and writes variation-suffixed ROOT pieces under `<output-dir>/pieces/`. Without `--variations`, Condor jobs also default to nominal and write `*_nominal.root` pieces.
 
 After jobs finish, return to the repository root and merge Condor pieces with:
 

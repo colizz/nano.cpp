@@ -72,13 +72,18 @@ CliOptions parse_args(int argc, char **argv) {
     }
   }
   if (opts.input_yaml.empty() || opts.job_dir.empty() || opts.output_dir.empty() || opts.config_file.empty()) {
-    throw std::runtime_error("Usage: nano_make_condor --input-yaml <samples.yaml> --job-dir <condor-dir> --output-dir <dir> --config <card.yaml> [--nfiles-per-job 1] [--variations nominal,jes_up,...]");
+    throw std::runtime_error("Usage: nano_make_condor --input-yaml <samples.yaml> --job-dir <condor-dir> --output-dir <dir> --config <card.yaml> [--nfiles-per-job 1] [--variations nominal,jes_up,...]. If omitted, --variations defaults to nominal.");
   }
   return opts;
 }
 
+std::string normalized_variations_arg(const CliOptions &cli) {
+  return cli.variations.empty() ? std::string("nominal") : cli.variations;
+}
+
 void validate_data_variations(const CliOptions &cli) {
-  if (!cli.run_data || cli.variations.empty() || cli.variations == "nominal") {
+  const auto variations = normalized_variations_arg(cli);
+  if (!cli.run_data || variations == "nominal") {
     return;
   }
   throw std::runtime_error("--run-data does not support JME variations. If --variations is used with --run-data, it must be the single value 'nominal'; otherwise omit --variations.");
@@ -289,7 +294,7 @@ int main(int argc, char **argv) {
       index_list << job.index << "\n";
     }
 
-    const auto variations_arg = cli.variations.empty() ? std::string("__none__") : cli.variations;
+    const auto variations_arg = normalized_variations_arg(cli);
     const auto run_data_arg = cli.run_data ? std::string("true") : std::string("false");
     const auto submit_jdl = render_template(
         template_dir / "submit.jdl.in",

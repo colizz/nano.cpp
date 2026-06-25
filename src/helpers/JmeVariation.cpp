@@ -51,10 +51,6 @@ JmeVariation parse_jme_variation(std::string_view name) {
 }
 
 std::vector<JmeVariation> parse_jme_variation_list(std::string_view text) {
-  if (text == "all") {
-    return {JmeVariation::Nominal, JmeVariation::JesUp, JmeVariation::JesDown, JmeVariation::JerUp,
-            JmeVariation::JerDown, JmeVariation::MetUp, JmeVariation::MetDown};
-  }
   std::vector<JmeVariation> out;
   std::stringstream ss{std::string(text)};
   std::string item;

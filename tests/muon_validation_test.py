@@ -442,14 +442,15 @@ def run_case(case, source_dir, build_dir, output_dir, max_input_events=None, rep
         print("running", case["name"])
         print(" ".join(cmd))
     subprocess.run(cmd, cwd=build_dir, check=True)
+    produced_out = variation_output_path(out, "nominal")
     extra_ignore = set()
     if case["name"].startswith(("2022", "2023", "2024", "2025", "2026")):
         extra_ignore.add("topptWeight")
         if report:
             report.line("Ignoring topptWeight in pass/fail comparison for Run 3 references; C++ applies the 13.6 TeV extrapolation.")
-    compare_outputs(source_dir / case["reference"], out, require_full=max_input_events is None, report=report, extra_ignore=extra_ignore)
+    compare_outputs(source_dir / case["reference"], produced_out, require_full=max_input_events is None, report=report, extra_ignore=extra_ignore)
     if case.get("check_lhe_weights"):
-        compare_lhe_weights(Path(inputs[0]), out, max_expected_entries=max_input_events, report=report)
+        compare_lhe_weights(Path(inputs[0]), produced_out, max_expected_entries=max_input_events, report=report)
     if report:
         report.line()
 
@@ -473,7 +474,7 @@ def run_2016apv_multi_variation(source_dir, build_dir, output_dir, max_input_eve
         "--config",
         str(source_dir / case["config"]),
         "--variations",
-        "all",
+        ",".join(VARIATION_NAMES),
     ]
     if max_input_events is not None:
         cmd.extend(["--num-events", str(max_input_events)])

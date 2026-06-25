@@ -89,9 +89,7 @@ run_one_input() {
     --config "${CONFIG}"
   )
 
-  if [[ "${VARIATIONS}" != "__none__" ]]; then
-    cmd+=(--variations "${VARIATIONS}")
-  fi
+  cmd+=(--variations "${VARIATIONS}")
   if should_download "${RUN_DATA}"; then
     cmd+=(--run-data)
   fi
@@ -105,17 +103,6 @@ run_one_input() {
 
 parse_variations() {
   local in_var=$1
-  if [[ "${in_var}" == "all" ]]; then
-    echo "nominal"
-    echo "jes_up"
-    echo "jes_down"
-    echo "jer_up"
-    echo "jer_down"
-    echo "met_up"
-    echo "met_down"
-    return 0
-  fi
-
   IFS=',' read -r -a out <<< "${in_var}"
   for v in "${out[@]}"; do
     [[ -n "${v}" ]] && echo "${v}"
@@ -172,56 +159,34 @@ prepare_input() {
   echo "${source_file}"
 }
 
-if [[ "${VARIATIONS}" == "__none__" ]]; then
-  if [[ "${DOWNLOAD_REMOTE}" == "false" ]]; then
-    run_one_input "${INPUTS}" "${LOCAL_OUTPUT}"
-  else
-    PIECES=()
-    for i in "${!WORK_INPUTS[@]}"; do
-      input_file="$(prepare_input "${i}" "${WORK_INPUTS[$i]}")"
-      piece_output="${WORKDIR}/piece_${JOB_INDEX}_${i}.root"
-      run_one_input "${input_file}" "${piece_output}"
-      PIECES+=("${piece_output}")
-      TO_CLEAN+=("${piece_output}")
-    done
-
-    if (( ${#PIECES[@]} == 1 )); then
-      mv -f "${PIECES[0]}" "${LOCAL_OUTPUT}"
-    else
-      echo "Merging ${#PIECES[@]} pieces into ${LOCAL_OUTPUT}"
-      hadd -f "${LOCAL_OUTPUT}" "${PIECES[@]}"
-    fi
-  fi
+if [[ "${DOWNLOAD_REMOTE}" == "false" ]]; then
+  run_one_input "${INPUTS}" "${LOCAL_OUTPUT}"
 else
-  if [[ "${DOWNLOAD_REMOTE}" == "false" ]]; then
-    run_one_input "${INPUTS}" "${LOCAL_OUTPUT}"
-  else
-    mapfile -t VARIATION_NAMES < <(parse_variations "${VARIATIONS}")
+  mapfile -t VARIATION_NAMES < <(parse_variations "${VARIATIONS}")
+  for i in "${!WORK_INPUTS[@]}"; do
+    input_file="$(prepare_input "${i}" "${WORK_INPUTS[$i]}")"
+    piece_base="${WORKDIR}/piece_${JOB_INDEX}_${i}"
+    run_one_input "${input_file}" "${piece_base}"
+    TO_CLEAN+=("${piece_base}" "${piece_base}.root")
+  done
+
+  for var in "${VARIATION_NAMES[@]}"; do
+    VARIANT_FILES=()
     for i in "${!WORK_INPUTS[@]}"; do
-      input_file="$(prepare_input "${i}" "${WORK_INPUTS[$i]}")"
       piece_base="${WORKDIR}/piece_${JOB_INDEX}_${i}"
-      run_one_input "${input_file}" "${piece_base}"
-      TO_CLEAN+=("${piece_base}" "${piece_base}.root")
+      piece_var="$(variation_file "${piece_base}" "${var}")"
+      VARIANT_FILES+=("${piece_var}")
+      TO_CLEAN+=("${piece_var}")
     done
 
-    for var in "${VARIATION_NAMES[@]}"; do
-      VARIANT_FILES=()
-      for i in "${!WORK_INPUTS[@]}"; do
-        piece_base="${WORKDIR}/piece_${JOB_INDEX}_${i}"
-        piece_var="$(variation_file "${piece_base}" "${var}")"
-        VARIANT_FILES+=("${piece_var}")
-        TO_CLEAN+=("${piece_var}")
-      done
-
-      local_var_output="$(variation_file "${LOCAL_OUTPUT}" "${var}")"
-      if (( ${#VARIANT_FILES[@]} == 1 )); then
-        mv -f "${VARIANT_FILES[0]}" "${local_var_output}"
-      else
-        echo "Merging ${#VARIANT_FILES[@]} pieces into ${local_var_output} (variation=${var})"
-        hadd -f "${local_var_output}" "${VARIANT_FILES[@]}"
-      fi
-    done
-  fi
+    local_var_output="$(variation_file "${LOCAL_OUTPUT}" "${var}")"
+    if (( ${#VARIANT_FILES[@]} == 1 )); then
+      mv -f "${VARIANT_FILES[0]}" "${local_var_output}"
+    else
+      echo "Merging ${#VARIANT_FILES[@]} pieces into ${local_var_output} (variation=${var})"
+      hadd -f "${local_var_output}" "${VARIANT_FILES[@]}"
+    fi
+  done
 fi
 
 copy_output() {
@@ -250,22 +215,18 @@ copy_output() {
   fi
 }
 
-if [[ "${VARIATIONS}" == "__none__" ]]; then
-  copy_output "${LOCAL_OUTPUT}" "${FINAL_OUTPUT}"
-else
-  shopt -s nullglob
-  copied=0
+shopt -s nullglob
+copied=0
 
-  for local_file in "${LOCAL_STEM}"_*.root; do
-    suffix="${local_file#${LOCAL_STEM}}"
-    copy_output "${local_file}" "${FINAL_STEM}${suffix}"
-    copied=$((copied + 1))
-  done
+for local_file in "${LOCAL_STEM}"_*.root; do
+  suffix="${local_file#${LOCAL_STEM}}"
+  copy_output "${local_file}" "${FINAL_STEM}${suffix}"
+  copied=$((copied + 1))
+done
 
-  if [[ ${copied} -eq 0 ]]; then
-    echo "No variation output files matched ${LOCAL_STEM}_*.root" >&2
-    exit 1
-  fi
+if [[ ${copied} -eq 0 ]]; then
+  echo "No variation output files matched ${LOCAL_STEM}_*.root" >&2
+  exit 1
 fi
 
 for file in "${TO_CLEAN[@]}"; do

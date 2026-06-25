@@ -69,13 +69,18 @@ CliOptions parse_args(int argc, char **argv) {
   }
 
   if (opts.input_files.empty() || opts.output_file.empty() || opts.config_file.empty()) {
-    throw std::runtime_error("Usage: nano_run --input-files <files> --output-file <out.root> --config <card.yaml> [--channel muon] [--num-events -1] [--run-data] [--variations nominal,jes_up,...] [--set key=value]");
+    throw std::runtime_error("Usage: nano_run --input-files <files> --output-file <out.root> --config <card.yaml> [--channel muon] [--num-events -1] [--run-data] [--variations nominal,jes_up,...] [--set key=value]. If omitted, --variations defaults to nominal.");
   }
   return opts;
 }
 
+std::string normalized_variations_arg(const CliOptions &cli) {
+  return cli.variations.empty() ? std::string("nominal") : cli.variations;
+}
+
 void validate_data_variations(const CliOptions &cli) {
-  if (!cli.run_data || cli.variations.empty() || cli.variations == "nominal") {
+  const auto variations = normalized_variations_arg(cli);
+  if (!cli.run_data || variations == "nominal") {
     return;
   }
   throw std::runtime_error("--run-data does not support JME variations. If --variations is used with --run-data, it must be the single value 'nominal'; otherwise omit --variations.");
@@ -306,48 +311,6 @@ std::string data_lumi_mask_path(const YAML::Node &settings, const nano::Producer
   return masks[config.era].as<std::string>();
 }
 
-void process_one_file(const std::string &input_file, const std::string &output_file, const CliOptions &cli,
-                      const YAML::Node &settings) {
-  auto input = std::unique_ptr<TFile>(TFile::Open(input_file.c_str(), "READ"));
-  if (!input || input->IsZombie()) {
-    throw std::runtime_error("Failed to open input file: " + input_file);
-  }
-  auto *tree = dynamic_cast<TTree *>(input->Get(cli.tree_name.c_str()));
-  if (!tree) {
-    throw std::runtime_error("Missing tree " + cli.tree_name + " in " + input_file);
-  }
-
-  const auto config = make_config(settings, cli.channel);
-  const auto lumi_mask = cli.run_data ? std::make_unique<nano::runtime::LumiMask>(nano::runtime::LumiMask::from_file(data_lumi_mask_path(settings, config)))
-                                      : nullptr;
-  auto producer = make_producer(config);
-  producer->begin_file();
-
-  nano::RootOutputFile output(output_file);
-  output.book_events(producer->output());
-
-  const auto entry_list = nano::runtime::build_entry_list(*tree, config.selection, cli.num_events, lumi_mask.get());
-  nano::NanoReader reader(*tree, nano::BranchSchema(nano::HeavyFlavBaseProducer::default_schema(config)));
-
-  std::size_t accepted = 0;
-  std::set<nano::runtime::RunLumi> selected_lumis;
-  for (const auto entry : entry_list) {
-    nano::Event event(reader, static_cast<std::size_t>(entry));
-    if (!producer->analyze(event)) {
-      continue;
-    }
-    output.fill_event(producer->output());
-    selected_lumis.insert({event.scalar<std::uint32_t>("run"), event.scalar<std::uint32_t>("luminosityBlock")});
-    ++accepted;
-  }
-
-  nano::runtime::copy_filtered_runs_tree(*input, output.file(), selected_lumis);
-  nano::runtime::copy_filtered_luminosity_blocks_tree(*input, output.file(), selected_lumis);
-  output.write();
-
-  std::cout << "input=" << input_file << " processed=" << entry_list.size() << " accepted=" << accepted << " output=" << output_file << "\n";
-}
-
 std::vector<std::string> process_one_file_variations(const std::string &input_file, const std::string &output_file, const CliOptions &cli,
                                                      const YAML::Node &settings,
                                                      const std::vector<nano::JmeVariation> &variations) {
@@ -436,50 +399,31 @@ int main(int argc, char **argv) {
       input = nano::runtime::normalize_input_path(input);
     }
 
-    const auto variations = cli.variations.empty() ? std::vector<nano::JmeVariation>{} : nano::parse_jme_variation_list(cli.variations);
-    if (!variations.empty()) {
-      if (inputs.size() == 1U) {
-        process_one_file_variations(inputs.front(), cli.output_file, cli, settings, variations);
-        return 0;
-      }
-
-      const auto temp_dir = fs::path("run") / ("pieces_" + std::to_string(::getpid()));
-      fs::create_directories(temp_dir);
-      std::unordered_map<std::string, std::vector<std::string>> piece_outputs;
-      for (const auto variation : variations) {
-        piece_outputs[std::string(nano::variation_name(variation))] = {};
-      }
-      for (std::size_t i = 0; i < inputs.size(); ++i) {
-        const auto piece_base = (temp_dir / ("piece_" + std::to_string(i) + ".root")).string();
-        const auto outputs = process_one_file_variations(inputs[i], piece_base, cli, settings, variations);
-        for (std::size_t j = 0; j < variations.size(); ++j) {
-          piece_outputs[std::string(nano::variation_name(variations[j]))].push_back(outputs[j]);
-        }
-      }
-      for (const auto variation : variations) {
-        const auto name = std::string(nano::variation_name(variation));
-        const auto final_output = variation_output_path(cli.output_file, variation);
-        nano::runtime::merge_root_files(piece_outputs.at(name), final_output);
-        std::cout << "merged=" << final_output << " variation=" << name << " pieces=" << piece_outputs.at(name).size() << "\n";
-      }
-      return 0;
-    }
-
+    const auto variations = nano::parse_jme_variation_list(normalized_variations_arg(cli));
     if (inputs.size() == 1U) {
-      process_one_file(inputs.front(), cli.output_file, cli, settings);
+      process_one_file_variations(inputs.front(), cli.output_file, cli, settings, variations);
       return 0;
     }
 
     const auto temp_dir = fs::path("run") / ("pieces_" + std::to_string(::getpid()));
     fs::create_directories(temp_dir);
-    std::vector<std::string> piece_outputs;
-    for (std::size_t i = 0; i < inputs.size(); ++i) {
-      const auto piece = (temp_dir / ("piece_" + std::to_string(i) + ".root")).string();
-      process_one_file(inputs[i], piece, cli, settings);
-      piece_outputs.push_back(piece);
+    std::unordered_map<std::string, std::vector<std::string>> piece_outputs;
+    for (const auto variation : variations) {
+      piece_outputs[std::string(nano::variation_name(variation))] = {};
     }
-    nano::runtime::merge_root_files(piece_outputs, cli.output_file);
-    std::cout << "merged=" << cli.output_file << " pieces=" << piece_outputs.size() << "\n";
+    for (std::size_t i = 0; i < inputs.size(); ++i) {
+      const auto piece_base = (temp_dir / ("piece_" + std::to_string(i) + ".root")).string();
+      const auto outputs = process_one_file_variations(inputs[i], piece_base, cli, settings, variations);
+      for (std::size_t j = 0; j < variations.size(); ++j) {
+        piece_outputs[std::string(nano::variation_name(variations[j]))].push_back(outputs[j]);
+      }
+    }
+    for (const auto variation : variations) {
+      const auto name = std::string(nano::variation_name(variation));
+      const auto final_output = variation_output_path(cli.output_file, variation);
+      nano::runtime::merge_root_files(piece_outputs.at(name), final_output);
+      std::cout << "merged=" << final_output << " variation=" << name << " pieces=" << piece_outputs.at(name).size() << "\n";
+    }
     return 0;
   } catch (const std::exception &ex) {
     std::cerr << "nano_run failed: " << ex.what() << "\n";

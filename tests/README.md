@@ -32,7 +32,7 @@ What it does:
 - Runs `build/nano_run` on the configured muon validation samples.
 - Covers nominal MC/data cases for Run 2 and Run 3 cards listed in `tests/muon_validation_test.py`.
 - Compares the produced ROOT output against reference ROOT files under `tests/data/muon_validation/references`.
-- Runs the 2016APV MC sample with `--variations all` and compares the key JME-sensitive branches for nominal, JES, JER, and unclustered-MET variations.
+- Runs the 2016APV MC sample with an explicit comma-separated `--variations` list and compares the key JME-sensitive branches for nominal, JES, JER, and unclustered-MET variations.
 - Writes the comparison report to `build/test-muon-validation/key_branch_compare_report.txt`.
 
 What it is meant to check:
@@ -84,4 +84,3 @@ What it is meant to check:
 - Empty vectors, dummy fallback values, wrong integer branch types, and suspicious raw factors can be spotted directly in the log.
 - JEC/JER/MET correction outputs can be compared against the exact inputs passed to CMSJMECalculators.
 - Problems specific to one era, NanoAOD version, or input sample can be diagnosed without changing the physics selection code.
-
