@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <iostream>
 #include <map>
+#include <sstream>
 #include <regex>
 #include <set>
 #include <string>
@@ -15,6 +16,7 @@
 #include <vector>
 // clang-format on
 
+#include <sys/wait.h>
 #include <unistd.h>
 
 namespace fs = std::filesystem;
@@ -30,6 +32,8 @@ constexpr std::array kAllowedVariations = {
     std::string_view{"met_up"},
     std::string_view{"met_down"},
 };
+
+constexpr std::size_t kHaddChunkSize = 200;
 
 constexpr std::string_view kUsage =
     "Usage: nano_merge <output_dir> [--resume-from <tmp_merge_dir>]\n"
@@ -114,7 +118,25 @@ CliOptions parse_args(int argc, char **argv) {
   return options;
 }
 
-void run_hadd(const FileGroup &files, const fs::path &output) {
+struct HaddInput {
+  int index = 0;
+  fs::path path;
+};
+
+using HaddInputGroup = std::vector<HaddInput>;
+
+std::string describe_system_status(int status) {
+  std::ostringstream out;
+  out << "raw_status=" << status;
+  if (WIFEXITED(status)) {
+    out << ", exit_code=" << WEXITSTATUS(status);
+  } else if (WIFSIGNALED(status)) {
+    out << ", signal=" << WTERMSIG(status);
+  }
+  return out.str();
+}
+
+void run_hadd(const HaddInputGroup &files, const fs::path &output) {
   std::vector<std::string> quoted;
   quoted.reserve(files.size());
   for (const auto &item : files) {
@@ -129,8 +151,52 @@ void run_hadd(const FileGroup &files, const fs::path &output) {
 
   const int status = std::system(cmd.c_str());
   if (status != 0) {
-    throw std::runtime_error("hadd failed for " + output.string() + " (status=" + std::to_string(status) + ")");
+    throw std::runtime_error("hadd failed for " + output.string() + " (" + describe_system_status(status) + ")");
   }
+}
+
+HaddInputGroup to_hadd_inputs(const FileGroup &files) {
+  HaddInputGroup out;
+  out.reserve(files.size());
+  for (const auto &file : files) {
+    out.push_back({file.index, file.path});
+  }
+  return out;
+}
+
+fs::path partial_output_path(const fs::path &output, std::size_t batch_index) {
+  const auto partial_dir = output.parent_path() / ".partials" / output.stem();
+  return partial_dir / ("part_" + std::to_string(batch_index) + ".root");
+}
+
+void run_chunked_hadd(const FileGroup &files, const fs::path &output, bool resume_mode) {
+  if (files.size() <= kHaddChunkSize) {
+    run_hadd(to_hadd_inputs(files), output);
+    return;
+  }
+
+  const auto batches = (files.size() + kHaddChunkSize - 1U) / kHaddChunkSize;
+  std::cout << "[step] Splitting hadd into " << batches << " partial batches of up to " << kHaddChunkSize << " files\n";
+  HaddInputGroup partials;
+  partials.reserve(batches);
+  for (std::size_t batch = 0; batch < batches; ++batch) {
+    const auto begin = batch * kHaddChunkSize;
+    const auto end = std::min(files.size(), begin + kHaddChunkSize);
+    const auto partial = partial_output_path(output, batch);
+    partials.push_back({static_cast<int>(batch), partial});
+    if (resume_mode && fs::exists(partial)) {
+      std::cout << "[step] Reusing existing partial output: " << partial << "\n";
+      continue;
+    }
+    fs::create_directories(partial.parent_path());
+    HaddInputGroup chunk;
+    chunk.reserve(end - begin);
+    for (std::size_t idx = begin; idx < end; ++idx) {
+      chunk.push_back({files[idx].index, files[idx].path});
+    }
+    run_hadd(chunk, partial);
+  }
+  run_hadd(partials, output);
 }
 
 bool merge_or_copy(const FileGroup &files, const fs::path &output, bool resume_mode) {
@@ -148,7 +214,7 @@ bool merge_or_copy(const FileGroup &files, const fs::path &output, bool resume_m
     std::cout << "[step] Copied single file to " << output << "\n";
     return true;
   }
-  run_hadd(files, output);
+  run_chunked_hadd(files, output, resume_mode);
   return true;
 }
 
