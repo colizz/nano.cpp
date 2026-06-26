@@ -245,6 +245,13 @@ int main(int argc, char **argv) {
               << "       to:   " << output_dir << "\n";
     copy_tree_contents(output_root, output_dir);
     std::cout << "Final merged outputs copied under: " << output_dir << "\n";
+    std::error_code cleanup_error;
+    fs::remove_all(output_root, cleanup_error);
+    if (cleanup_error) {
+      std::cerr << "Warning: failed to remove temporary output dir " << output_root << ": " << cleanup_error.message() << "\n";
+    } else {
+      std::cout << "Removed temporary output dir: " << output_root << "\n";
+    }
     return 0;
   } catch (const std::exception &ex) {
     std::cerr << "nano_merge failed: " << ex.what() << "\n";
