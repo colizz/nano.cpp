@@ -31,8 +31,10 @@ constexpr std::array kAllowedVariations = {
     std::string_view{"met_down"},
 };
 
-constexpr std::string_view kUsage = "Usage: nano_merge <output_dir>\n"
-                                   "  <output_dir>: base Condor output directory; piece files are read from <output_dir>/pieces";
+constexpr std::string_view kUsage =
+    "Usage: nano_merge <output_dir> [--resume-from <tmp_merge_dir>]\n"
+    "  <output_dir>: base Condor output directory; piece files are read from <output_dir>/pieces\n"
+    "  --resume-from: reuse a previous nano_merge temporary directory and skip groups whose temporary output already exists";
 
 std::string shell_quote(const fs::path &path) {
   std::string s = path.string();
@@ -60,12 +62,57 @@ fs::path make_output_root() {
   return base / ("nano_merge_" + std::to_string(::getpid()) + "_" + std::to_string(seconds));
 }
 
+bool is_safe_resume_dir(const fs::path &path) {
+  const char *tmp = std::getenv("TMPDIR");
+  const fs::path temp_base = tmp != nullptr && tmp[0] != '\0' ? fs::path(tmp) : fs::path("/tmp");
+  std::error_code error;
+  const auto canonical_base = fs::weakly_canonical(temp_base, error);
+  if (error) {
+    return false;
+  }
+  const auto canonical_path = fs::weakly_canonical(path, error);
+  if (error) {
+    return false;
+  }
+  const auto relative = fs::relative(canonical_path, canonical_base, error);
+  if (error || relative.empty()) {
+    return false;
+  }
+  const auto relative_string = relative.string();
+  if (relative_string == "." || relative_string.rfind("..", 0) == 0) {
+    return false;
+  }
+  const auto dirname = canonical_path.filename().string();
+  return dirname.rfind("nano_merge_", 0) == 0;
+}
+
 struct PieceEntry {
   int index = 0;
   fs::path path;
 };
 
 using FileGroup = std::vector<PieceEntry>;
+
+struct CliOptions {
+  fs::path output_dir;
+  fs::path resume_dir;
+};
+
+CliOptions parse_args(int argc, char **argv) {
+  if (argc != 2 && argc != 4) {
+    throw std::runtime_error(std::string(kUsage));
+  }
+  CliOptions options;
+  options.output_dir = fs::path(argv[1]);
+  if (argc == 4) {
+    const std::string flag = argv[2];
+    if (flag != "--resume-from") {
+      throw std::runtime_error(std::string(kUsage));
+    }
+    options.resume_dir = fs::path(argv[3]);
+  }
+  return options;
+}
 
 void run_hadd(const FileGroup &files, const fs::path &output) {
   std::vector<std::string> quoted;
@@ -86,28 +133,34 @@ void run_hadd(const FileGroup &files, const fs::path &output) {
   }
 }
 
-void merge_or_copy(const FileGroup &files, const fs::path &output) {
+bool merge_or_copy(const FileGroup &files, const fs::path &output, bool resume_mode) {
   if (files.empty()) {
-    return;
+    return false;
   }
   fs::create_directories(output.parent_path());
+  if (resume_mode && fs::exists(output)) {
+    std::cout << "[step] Reusing existing temporary output: " << output << "\n";
+    return false;
+  }
   if (files.size() == 1) {
     const auto &src = files.front().path;
     fs::copy_file(src, output, fs::copy_options::overwrite_existing);
     std::cout << "[step] Copied single file to " << output << "\n";
-    return;
+    return true;
   }
   run_hadd(files, output);
+  return true;
 }
 
-void merge_group(const std::string &nickname, const std::string &variation, const FileGroup &files, const fs::path &output_root) {
+bool merge_group(const std::string &nickname, const std::string &variation, const FileGroup &files, const fs::path &output_root,
+                 bool resume_mode) {
   auto sorted_files = files;
   std::sort(sorted_files.begin(), sorted_files.end(), [](const PieceEntry &a, const PieceEntry &b) { return a.index < b.index; });
   const auto output = variation.empty() ? output_root / (nickname + ".root") : output_root / variation / (nickname + "_" + variation + ".root");
   std::cout << "[step] Merging " << sorted_files.size() << " files for "
             << (variation.empty() ? (nickname + " (nominal)") : (nickname + ", variation=" + variation)) << "\n"
             << "       output: " << output << "\n";
-  merge_or_copy(sorted_files, output);
+  return merge_or_copy(sorted_files, output, resume_mode);
 }
 
 void copy_tree_contents(const fs::path &from, const fs::path &to) {
@@ -131,14 +184,22 @@ void copy_tree_contents(const fs::path &from, const fs::path &to) {
 
 int main(int argc, char **argv) {
   try {
-    if (argc != 2) {
-      std::cerr << kUsage << "\n";
-      return 1;
-    }
+    const auto cli = parse_args(argc, argv);
 
-    const fs::path output_dir = fs::path(argv[1]);
+    const fs::path output_dir = cli.output_dir;
     if (!fs::exists(output_dir) || !fs::is_directory(output_dir)) {
       std::cerr << "Input path must be a directory: " << output_dir << "\n";
+      return 1;
+    }
+    const bool resume_mode = !cli.resume_dir.empty();
+    if (resume_mode && (!fs::exists(cli.resume_dir) || !fs::is_directory(cli.resume_dir))) {
+      std::cerr << "Resume directory must exist and be a directory: " << cli.resume_dir << "\n";
+      return 1;
+    }
+    if (resume_mode && !is_safe_resume_dir(cli.resume_dir)) {
+      std::cerr << "Resume directory must be a nano_merge_* directory under "
+                << (std::getenv("TMPDIR") != nullptr && std::getenv("TMPDIR")[0] != '\0' ? std::getenv("TMPDIR") : "/tmp") << ": "
+                << cli.resume_dir << "\n";
       return 1;
     }
 
@@ -198,11 +259,16 @@ int main(int argc, char **argv) {
       return 1;
     }
 
-    const fs::path output_root = make_output_root();
+    const fs::path output_root = resume_mode ? cli.resume_dir : make_output_root();
     fs::create_directories(output_root);
-    std::cout << "Created output dir: " << output_root << "\n";
+    if (resume_mode) {
+      std::cout << "Resuming with temporary output dir: " << output_root << "\n";
+    } else {
+      std::cout << "Created output dir: " << output_root << "\n";
+    }
     std::size_t merged_count = 0;
     std::size_t copied_count = 0;
+    std::size_t skipped_count = 0;
     std::size_t written_files = 0;
 
     for (const auto &[nickname, files] : no_variation) {
@@ -210,12 +276,14 @@ int main(int argc, char **argv) {
         continue;
       }
       ++written_files;
-      if (files.size() == 1) {
+      const bool did_write = merge_group(nickname, "", files, output_root, resume_mode);
+      if (!did_write) {
+        ++skipped_count;
+      } else if (files.size() == 1) {
         ++copied_count;
       } else {
         ++merged_count;
       }
-      merge_group(nickname, "", files, output_root);
     }
 
     for (const auto &[variation, per_nick] : by_variation) {
@@ -225,12 +293,14 @@ int main(int argc, char **argv) {
           continue;
         }
         ++written_files;
-        if (files.size() == 1) {
+        const bool did_write = merge_group(nickname, variation, files, output_root, resume_mode);
+        if (!did_write) {
+          ++skipped_count;
+        } else if (files.size() == 1) {
           ++copied_count;
         } else {
           ++merged_count;
         }
-        merge_group(nickname, variation, files, output_root);
       }
     }
 
@@ -238,6 +308,7 @@ int main(int argc, char **argv) {
     std::cout << "  input files: " << total_root << "\n";
     std::cout << "  merged groups: " << merged_count << "\n";
     std::cout << "  copied singleton groups: " << copied_count << "\n";
+    std::cout << "  skipped existing groups: " << skipped_count << "\n";
     std::cout << "  output files written: " << written_files << "\n";
     std::cout << "All outputs written under: " << output_root << "\n";
     std::cout << "[step] Copying merged outputs from temporary dir to final output dir\n"
