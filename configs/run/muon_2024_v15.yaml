@@ -11,7 +11,6 @@ nano_version: "v15"
 
 required_triggers:
   - HLT_Mu50
-  - HLT_TkMu50
 
 stored_tagger_names:
   - globalParT3_QCD
@@ -80,7 +79,6 @@ read_branches:
   - Flag_HBHENoiseFilter
   - Flag_HBHENoiseIsoFilter
   - HLT_Mu50
-  - HLT_TkMu50
   - PuppiMET_pt
   - PuppiMET_phi
   - PuppiMET_ptUnclusteredUp

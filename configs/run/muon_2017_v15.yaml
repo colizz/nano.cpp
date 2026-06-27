@@ -1,4 +1,4 @@
-# Muon channel runtime card for 2018 v15.
+# Muon channel runtime card for 2017 v15.
 #
 # `read_branches` is the complete physical input branch list used by
 # this channel before trigger/LHE dynamic additions. Branch types are
@@ -6,7 +6,7 @@
 
 extends: ../base.yaml
 
-era: "2018"
+era: "2017"
 nano_version: "v15"
 
 required_triggers:

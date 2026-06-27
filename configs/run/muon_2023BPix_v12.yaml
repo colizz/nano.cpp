@@ -1,4 +1,4 @@
-# Muon channel runtime card for 2018 v15.
+# Muon channel runtime card for 2023BPix v12.
 #
 # `read_branches` is the complete physical input branch list used by
 # this channel before trigger/LHE dynamic additions. Branch types are
@@ -6,42 +6,13 @@
 
 extends: ../base.yaml
 
-era: "2018"
-nano_version: "v15"
+era: "2023BPix"
+nano_version: "v12"
 
 required_triggers:
   - HLT_Mu50
-  - HLT_TkMu50
 
 stored_tagger_names:
-  - globalParT3_QCD
-  - globalParT3_TopbWev
-  - globalParT3_TopbWmv
-  - globalParT3_TopbWq
-  - globalParT3_TopbWqq
-  - globalParT3_TopbWtauhv
-  - globalParT3_WvsQCD
-  - globalParT3_XWW3q
-  - globalParT3_XWW4q
-  - globalParT3_XWWqqev
-  - globalParT3_XWWqqmv
-  - globalParT3_Xbb
-  - globalParT3_Xcc
-  - globalParT3_Xcs
-  - globalParT3_Xqq
-  - globalParT3_Xtauhtaue
-  - globalParT3_Xtauhtauh
-  - globalParT3_Xtauhtaum
-  - globalParT3_massCorrGeneric
-  - globalParT3_massCorrX2p
-  - globalParT3_withMassTopvsQCD
-  - globalParT3_withMassWvsQCD
-  - globalParT3_withMassZvsQCD
-  - particleNetLegacy_QCD
-  - particleNetLegacy_Xbb
-  - particleNetLegacy_Xcc
-  - particleNetLegacy_Xqq
-  - particleNetLegacy_mass
   - particleNetWithMass_H4qvsQCD
   - particleNetWithMass_HbbvsQCD
   - particleNetWithMass_HccvsQCD
@@ -53,7 +24,6 @@ stored_tagger_names:
   - particleNet_QCD0HF
   - particleNet_QCD1HF
   - particleNet_QCD2HF
-  - particleNet_WVsQCD
   - particleNet_XbbVsQCD
   - particleNet_XccVsQCD
   - particleNet_XggVsQCD
@@ -80,13 +50,16 @@ read_branches:
   - Flag_HBHENoiseFilter
   - Flag_HBHENoiseIsoFilter
   - HLT_Mu50
-  - HLT_TkMu50
   - PuppiMET_pt
   - PuppiMET_phi
   - PuppiMET_ptUnclusteredUp
   - PuppiMET_phiUnclusteredUp
   - RawPuppiMET_pt
   - RawPuppiMET_phi
+  - MET_pt
+  - MET_phi
+  - RawMET_pt
+  - RawMET_phi
   - Rho_fixedGridRhoFastjetAll
   - Muon_pt
   - Muon_eta
@@ -115,14 +88,12 @@ read_branches:
   - Jet_muonSubtrFactor
   - Jet_btagDeepFlavB
   - Jet_btagPNetB
-  - Jet_btagUParTAK4B
   - Jet_neHEF
   - Jet_neEmEF
   - Jet_chHEF
   - Jet_muEF
   - Jet_chEmEF
-  - Jet_chMultiplicity
-  - Jet_neMultiplicity
+  - Jet_jetId
   - Jet_partonFlavour
   - Jet_genJetIdx
   - CorrT1METJet_rawPt
@@ -137,14 +108,10 @@ read_branches:
   - FatJet_rawFactor
   - FatJet_area
   - FatJet_msoftdrop
-  - FatJet_neHEF
-  - FatJet_neEmEF
-  - FatJet_chHEF
-  - FatJet_muEF
-  - FatJet_chEmEF
-  - FatJet_chMultiplicity
-  - FatJet_neMultiplicity
+  - FatJet_jetId
   - FatJet_genJetAK8Idx
+  - FatJet_nBHadrons
+  - FatJet_nCHadrons
   - FatJet_hadronFlavour
   - FatJet_tau1
   - FatJet_tau2
@@ -152,34 +119,6 @@ read_branches:
   - FatJet_tau4
   - FatJet_subJetIdx1
   - FatJet_subJetIdx2
-  - FatJet_globalParT3_QCD
-  - FatJet_globalParT3_TopbWev
-  - FatJet_globalParT3_TopbWmv
-  - FatJet_globalParT3_TopbWq
-  - FatJet_globalParT3_TopbWqq
-  - FatJet_globalParT3_TopbWtauhv
-  - FatJet_globalParT3_WvsQCD
-  - FatJet_globalParT3_XWW3q
-  - FatJet_globalParT3_XWW4q
-  - FatJet_globalParT3_XWWqqev
-  - FatJet_globalParT3_XWWqqmv
-  - FatJet_globalParT3_Xbb
-  - FatJet_globalParT3_Xcc
-  - FatJet_globalParT3_Xcs
-  - FatJet_globalParT3_Xqq
-  - FatJet_globalParT3_Xtauhtaue
-  - FatJet_globalParT3_Xtauhtauh
-  - FatJet_globalParT3_Xtauhtaum
-  - FatJet_globalParT3_massCorrGeneric
-  - FatJet_globalParT3_massCorrX2p
-  - FatJet_globalParT3_withMassTopvsQCD
-  - FatJet_globalParT3_withMassWvsQCD
-  - FatJet_globalParT3_withMassZvsQCD
-  - FatJet_particleNetLegacy_QCD
-  - FatJet_particleNetLegacy_Xbb
-  - FatJet_particleNetLegacy_Xcc
-  - FatJet_particleNetLegacy_Xqq
-  - FatJet_particleNetLegacy_mass
   - FatJet_particleNetWithMass_H4qvsQCD
   - FatJet_particleNetWithMass_HbbvsQCD
   - FatJet_particleNetWithMass_HccvsQCD
@@ -191,7 +130,6 @@ read_branches:
   - FatJet_particleNet_QCD0HF
   - FatJet_particleNet_QCD1HF
   - FatJet_particleNet_QCD2HF
-  - FatJet_particleNet_WVsQCD
   - FatJet_particleNet_XbbVsQCD
   - FatJet_particleNet_XccVsQCD
   - FatJet_particleNet_XggVsQCD
@@ -205,6 +143,7 @@ read_branches:
   - SubJet_phi
   - SubJet_mass
   - SubJet_rawFactor
+  - SubJet_btagDeepB
   - SubJet_nBHadrons
   - SubJet_nCHadrons
   - GenJet_pt
@@ -215,8 +154,6 @@ read_branches:
   - GenJetAK8_eta
   - GenJetAK8_phi
   - GenJetAK8_mass
-  - GenJetAK8_nBHadrons
-  - GenJetAK8_nCHadrons
   - GenJetAK8_partonFlavour
   - SubGenJetAK8_pt
   - SubGenJetAK8_eta

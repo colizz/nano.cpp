@@ -41,6 +41,7 @@ data_lumi_masks:
   2023: /cvmfs/cms-griddata.cern.ch/cat/metadata/DC/Collisions23/latest/Cert_Collisions2023_366442_370790_Golden.json
   2023BPix: /cvmfs/cms-griddata.cern.ch/cat/metadata/DC/Collisions23/latest/Cert_Collisions2023_366442_370790_Golden.json
   2024: /cvmfs/cms-griddata.cern.ch/cat/metadata/DC/Collisions24/latest/Cert_Collisions2024_378981_386951_Golden.json
+  2025: /cvmfs/cms-griddata.cern.ch/cat/metadata/DC/Collisions25/latest/Cert_Collisions2025_391658_398903_Golden.json
 
 # Shared JME payload root. Era-specific payload subdirectories are appended to
 # this base path.
@@ -353,6 +354,27 @@ jec:
         jec_tag_mc: inherit
         jec_tag_data: inherit
         jer_tag_mc: inherit
+    2025_NanoAODv15:
+      payload_subdir: Run3-25Prompt-Winter25-NanoAODv15
+      jet_jerc_file: jet_jerc.json.gz
+      fatjet_jerc_file: fatJet_jerc.json.gz
+      met_xy_corr_era: ""
+      jes_uncertainties: [Total]
+      jet:
+        algo: AK4PFPuppi
+        jec_tag_mc: Winter25Prompt25_V3_MC
+        jec_tag_data: Winter25Prompt25_V3_DATA
+        jer_tag_mc: Summer24Prompt25_JRV1_MC
+      fatjet:
+        algo: AK8PFPuppi
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
+        jer_tag_mc: inherit
+      subjet:
+        algo: AK4PFPuppi
+        jec_tag_mc: inherit
+        jec_tag_data: inherit
+        jer_tag_mc: inherit
 
 # Event-level jet veto map. The C++ producer only evaluates this for Run 3
 # and later eras; Run 2 outputs a dummy value of -99 by construction. `type`
@@ -380,6 +402,9 @@ jet_veto_map:
     2024_NanoAODv15:
       payload_subdir: Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/jetvetomaps.json.gz
       correction: Summer24Prompt24_RunBCDEFGHI_V1
+    2025_NanoAODv15:
+      payload_subdir: Run3-25Prompt-Winter25-NanoAODv15/latest/jetvetomaps.json.gz
+      correction: Winter25Prompt25_RunCDEFG_V1
 
 # Pileup reweighting configuration, fully correctionlib-based.
 pu:
@@ -412,6 +437,9 @@ pu:
     2024:
       payload_subdir: Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/puWeights_BCDEFGHI.json.gz
       correction_key: Collisions24_BCDEFGHI_goldenJSON
+    2025:
+      payload_subdir: Run3-25Prompt-Summer24-NanoAODv15/latest/puWeights_2025pp_Golden_Summer24_25ns_69200ub.json.gz
+      correction_key: Collisions25_goldenJSON
 
 # Numeric year label written to the output `year` branch. The mapping follows
 # the historical Python producer convention, where split eras such as 2022EE
@@ -426,6 +454,7 @@ year_values:
   2023: 2023.0
   2023BPix: 2023.5
   2024: 2024.0
+  2025: 2025.0
 
 # Integrated luminosity used for the `lumiwgt` output branch, keyed by era.
 lumi_values:
@@ -438,6 +467,7 @@ lumi_values:
   2023: 18.063
   2023BPix: 9.693
   2024: 108.96
+  2025: 110.59
 
 # Version- and year-dependent AK4 b-tagging setup. Not every NanoAOD version
 # exists for every year, so only the supported combinations are listed.
@@ -523,6 +553,13 @@ btag:
       xtight: 0.6992
       xxtight: 0.9655
     2024:
+      branch: btagUParTAK4B
+      loose: 0.0246
+      medium: 0.1272
+      tight: 0.4648
+      xtight: 0.6298
+      xxtight: 0.9739
+    2025:
       branch: btagUParTAK4B
       loose: 0.0246
       medium: 0.1272
