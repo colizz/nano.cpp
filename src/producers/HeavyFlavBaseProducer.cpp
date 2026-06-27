@@ -82,6 +82,10 @@ HeavyFlavBaseProducer::HeavyFlavBaseProducer(ProducerConfig config) : config_(st
 
 HeavyFlavBaseProducer::~HeavyFlavBaseProducer() = default;
 
+JmeEventResult HeavyFlavBaseProducer::compute_jme_result(Event &event) const {
+  return jme_corrector_->compute_event(event);
+}
+
 // Define the shared output branches owned by the base producer. Channel
 // producers call this once per output file before the event loop, then add
 // their channel-specific branches on top.
@@ -197,18 +201,6 @@ void HeavyFlavBaseProducer::select_leptons(Event &event) const {
   }
 
   event.set("looseLeptons", sort_by_pt(std::move(loose_leptons)));
-}
-
-// Convenience path for a single nominal JME pass. Multi-variation running uses
-// compute_jme() once and then calls apply_jme_and_select_jets() for each output
-// variation.
-void HeavyFlavBaseProducer::correct_jets_and_met(Event &event) const {
-  const auto jme_result = compute_jme(event);
-  apply_jme_and_select_jets(event, jme_result, JmeVariation::Nominal);
-}
-
-JmeEventResult HeavyFlavBaseProducer::compute_jme(Event &event) const {
-  return jme_corrector_->compute_event(event);
 }
 
 // Apply one JME variation to Jet/FatJet/SubJet/MET, then build the cleaned jet

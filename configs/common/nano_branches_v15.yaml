@@ -6070,6 +6070,15 @@ nano_branches:
           "genWeight":
             type: "float"
             root_type: "Float_t"
+          "L1PreFiringWeight_Dn":
+            type: "float"
+            root_type: "Float_t"
+          "L1PreFiringWeight_Nom":
+            type: "float"
+            root_type: "Float_t"
+          "L1PreFiringWeight_Up":
+            type: "float"
+            root_type: "Float_t"
           "luminosityBlock":
             type: "uint32"
             root_type: "UInt_t"

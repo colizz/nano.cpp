@@ -28,6 +28,7 @@ add_library(nanoaodtools_cpp
   src/helpers/PuWeightProducer.cpp
   src/helpers/TopPtWeightProducer.cpp
   src/producers/HeavyFlavBaseProducer.cpp
+  src/producers/HeavyFlavMinimalProducer.cpp
   src/producers/HeavyFlavMuonSampleProducer.cpp
 )
 

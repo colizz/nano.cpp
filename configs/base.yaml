@@ -10,15 +10,15 @@
 # 3. command-line `--set key=value` options
 #
 # Supported `--set` syntax uses dot-separated keys. Example:
-#   --set selections.muon='nFatJet>0'
+#   --set preselection='nFatJet>0'
+#   --set channels.minimal.leading_fatjet_pt_min=500
 #   --set btag.v15.2024.medium=0.13
 
-extends: branches/all.yaml
-
-# Preselection strings applied before constructing the event loop. These are
-# ROOT selection expressions and should stay compatible with `TTree::Draw`.
-selections:
-  muon: Sum$(Muon_pt>55 && abs(Muon_eta)<2.4 && Muon_tightId && Muon_miniPFRelIso_all<0.10)>0 && nFatJet>0
+# Channel-specific scalar options. Runtime cards can override entries under
+# their own channel, and producers read them through ProducerConfig::channel_options.
+channels:
+  minimal:
+    leading_fatjet_pt_min: 400.0
 
 # Output-level optional branches. Keep large vector branches disabled by
 # default and enable them in a channel card or with `--set` when needed.

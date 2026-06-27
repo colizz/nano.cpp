@@ -1,6 +1,0 @@
-# Aggregate NanoAOD branch catalogue. Keep per-version branch facts in the
-# version-specific files so each NanoAOD release can be updated independently.
-extends:
-  - nanov9.yaml
-  - nanov12.yaml
-  - nanov15.yaml

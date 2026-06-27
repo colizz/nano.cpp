@@ -1,4 +1,4 @@
-# Muon channel runtime card for 2022 v12.
+# Minimal channel runtime card for 2023BPix v12.
 # Common NanoAOD branches, stored taggers, and input branch manifests
 # are inherited from configs/common/*.yaml.
 
@@ -8,11 +8,15 @@ extends:
   - ../common/stored_tagger_names_v12.yaml
   - ../common/read_branches_v12.yaml
 
-era: "2022"
+era: "2023BPix"
 nano_version: "v12"
 
 # ROOT/TTree preselection applied before the event loop.
-preselection: Sum$(Muon_pt>55 && abs(Muon_eta)<2.4 && Muon_tightId && Muon_miniPFRelIso_all<0.10)>0 && nFatJet>0
+preselection: nFatJet>0
 
-required_triggers:
-  - HLT_Mu50
+required_triggers: []
+
+# Minimal-channel scalar options. These override configs/base.yaml defaults.
+channels:
+  minimal:
+    leading_fatjet_pt_min: 400.0

@@ -1,11 +1,14 @@
 #include "nano/core/Event.h"
 #include "nano/io/NanoReader.h"
 #include "nano/io/RootOutputFile.h"
+#include "nano/producers/HeavyFlavMinimalProducer.h"
 #include "nano/producers/HeavyFlavMuonSampleProducer.h"
 
 #include "runtime_common.h"
 
 #include <algorithm>
+#include <cerrno>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -17,6 +20,46 @@
 namespace fs = std::filesystem;
 
 namespace {
+
+bool parse_double_strict(const std::string &text, double &value) {
+  char *end = nullptr;
+  errno = 0;
+  const auto parsed = std::strtod(text.c_str(), &end);
+  if (errno != 0 || end == text.c_str() || *end != '\0') {
+    return false;
+  }
+  value = parsed;
+  return true;
+}
+
+nano::ChannelOptions parse_channel_options(const YAML::Node &settings, const std::string &channel) {
+  nano::ChannelOptions options;
+  const auto channels = settings["channels"];
+  const auto node = channels && channels.IsMap() ? channels[channel] : YAML::Node{};
+  if (!node) {
+    return options;
+  }
+  if (!node.IsMap()) {
+    throw std::runtime_error("channels." + channel + " must be a map");
+  }
+  for (const auto &item : node) {
+    const auto key = item.first.as<std::string>();
+    const auto value = item.second;
+    if (!value.IsScalar()) {
+      throw std::runtime_error("channels." + channel + "." + key + " must be a scalar");
+    }
+    const auto text = value.as<std::string>();
+    options.strings[key] = text;
+    if (text == "true" || text == "false") {
+      options.bools[key] = value.as<bool>();
+    }
+    double number_value = 0.0;
+    if (parse_double_strict(text, number_value)) {
+      options.numbers[key] = number_value;
+    }
+  }
+  return options;
+}
 
 struct CliOptions {
   std::string input_files;
@@ -69,7 +112,7 @@ CliOptions parse_args(int argc, char **argv) {
   }
 
   if (opts.input_files.empty() || opts.output_file.empty() || opts.config_file.empty()) {
-    throw std::runtime_error("Usage: nano_run --input-files <files> --output-file <out.root> --config <card.yaml> [--channel muon] [--num-events -1] [--run-data] [--variations nominal,jes_up,...] [--set key=value]. If omitted, --variations defaults to nominal.");
+    throw std::runtime_error("Usage: nano_run --input-files <files> --output-file <out.root> --config <card.yaml> [--channel muon|minimal] [--num-events -1] [--run-data] [--variations nominal,jes_up,...] [--set key=value]. If omitted, --variations defaults to nominal.");
   }
   return opts;
 }
@@ -145,7 +188,11 @@ nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &
   config.era = settings["era"].as<std::string>();
   config.nano_version = settings["nano_version"].as<std::string>();
   validate_era_nano_version(config.era, config.nano_version);
-  config.selection = settings["selections"][channel].as<std::string>();
+  if (!settings["preselection"]) {
+    throw std::runtime_error("Missing preselection in config");
+  }
+  config.preselection = settings["preselection"].as<std::string>();
+  config.channel_options = parse_channel_options(settings, channel);
   config.required_triggers = nano::runtime::yaml_string_list(settings, "required_triggers");
 
   const auto catalogue = settings["nano_branches"][config.nano_version]["trees"]["Events"]["branches"];
@@ -186,8 +233,7 @@ nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &
   std::set<std::string> seen(config.read_branches.begin(), config.read_branches.end());
   for (const auto &trigger : config.required_triggers) {
     if (seen.insert(trigger).second) {
-      std::cerr << "Warning: adding missing branch " << trigger
-                << " to read_branches from required_triggers. Please list it explicitly in read_branches.\n";
+      std::cerr << "Info: adding branch " << trigger << " to read_branches from required_triggers.\n";
       config.read_branches.push_back(trigger);
     }
     config.nano_branch_types[trigger] = nano::BranchType::kBool;
@@ -195,8 +241,7 @@ nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &
   for (const auto &tagger : config.tagger_names) {
     const auto branch_name = "FatJet_" + tagger;
     if (seen.insert(branch_name).second) {
-      std::cerr << "Warning: adding missing branch " << branch_name
-                << " to read_branches from stored_tagger_names. Please list it explicitly in read_branches.\n";
+      std::cerr << "Info: adding branch " << branch_name << " to read_branches from stored_tagger_names.\n";
       config.read_branches.push_back(branch_name);
     }
   }
@@ -291,6 +336,9 @@ std::unique_ptr<nano::HeavyFlavBaseProducer> make_producer(const nano::ProducerC
   if (config.channel == "muon") {
     return std::make_unique<nano::HeavyFlavMuonSampleProducer>(config);
   }
+  if (config.channel == "minimal") {
+    return std::make_unique<nano::HeavyFlavMinimalProducer>(config);
+  }
   throw std::runtime_error("Unsupported channel: " + config.channel);
 }
 
@@ -327,10 +375,7 @@ std::vector<std::string> process_one_file_variations(const std::string &input_fi
   const auto lumi_mask = cli.run_data ? std::make_unique<nano::runtime::LumiMask>(nano::runtime::LumiMask::from_file(data_lumi_mask_path(settings, config)))
                                       : nullptr;
   auto producer_base = make_producer(config);
-  auto *producer = dynamic_cast<nano::HeavyFlavMuonSampleProducer *>(producer_base.get());
-  if (!producer) {
-    throw std::runtime_error("Multi-variation running is currently implemented for the muon channel");
-  }
+  auto *producer = producer_base.get();
   producer->begin_file();
 
   struct VariationOutput {
@@ -352,7 +397,7 @@ std::vector<std::string> process_one_file_variations(const std::string &input_fi
     outputs.push_back({variation, std::move(path), std::move(output), 0U});
   }
 
-  const auto entry_list = nano::runtime::build_entry_list(*tree, config.selection, cli.num_events, lumi_mask.get());
+  const auto entry_list = nano::runtime::build_entry_list(*tree, config.preselection, cli.num_events, lumi_mask.get());
   nano::NanoReader reader(*tree, nano::BranchSchema(nano::HeavyFlavBaseProducer::default_schema(config)));
 
   for (const auto entry : entry_list) {

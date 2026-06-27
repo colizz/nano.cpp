@@ -7,6 +7,7 @@
 #include "nano/helpers/JmeVariation.h"
 
 #include <memory>
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -57,11 +58,18 @@ struct BTagConfig {
   float xxtight = 0.0f;
 };
 
+struct ChannelOptions {
+  std::unordered_map<std::string, bool> bools;
+  std::unordered_map<std::string, double> numbers;
+  std::unordered_map<std::string, std::string> strings;
+};
+
 struct ProducerConfig {
   std::string era = "2024";
   std::string channel;
   std::string nano_version = "v15";
-  std::string selection;
+  std::string preselection;
+  ChannelOptions channel_options;
   std::vector<std::string> required_triggers;
   std::vector<std::string> read_branches;
   std::unordered_map<std::string, BranchType> nano_branch_types;
@@ -92,6 +100,9 @@ public:
 
   virtual void begin_file();
   virtual bool analyze(Event &event) = 0;
+  virtual bool analyze_common(Event &event) = 0;
+  virtual JmeEventResult compute_jme_result(Event &event) const;
+  virtual bool analyze_variation(Event &event, const JmeEventResult &jme_result, JmeVariation variation) = 0;
 
   OutputModel &output() { return out_; }
   const OutputModel &output() const { return out_; }
@@ -100,8 +111,6 @@ public:
 protected:
   void prepare_common_objects(Event &event) const;
   void select_leptons(Event &event) const;
-  void correct_jets_and_met(Event &event) const;
-  JmeEventResult compute_jme(Event &event) const;
   void apply_jme_and_select_jets(Event &event, const JmeEventResult &jme_result, JmeVariation variation) const;
   void load_gen_history(Event &event, std::vector<ObjectView> &fatjets) const;
   void fill_base_event_info(Event &event, JmeVariation variation);

@@ -1,0 +1,21 @@
+# Stored FatJet tagger names for muon-channel NanoAOD v9 runtime cards.
+stored_tagger_names:
+  - deepTagMD_H4qvsQCD
+  - deepTagMD_HbbvsQCD
+  - deepTagMD_TvsQCD
+  - deepTagMD_WvsQCD
+  - deepTagMD_ZHbbvsQCD
+  - deepTagMD_ZHccvsQCD
+  - deepTagMD_ZvsQCD
+  - particleNetMD_QCD
+  - particleNetMD_Xbb
+  - particleNetMD_Xcc
+  - particleNetMD_Xqq
+  - particleNet_H4qvsQCD
+  - particleNet_HbbvsQCD
+  - particleNet_HccvsQCD
+  - particleNet_QCD
+  - particleNet_TvsQCD
+  - particleNet_WvsQCD
+  - particleNet_ZvsQCD
+  - particleNet_mass

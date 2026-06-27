@@ -2,36 +2,39 @@
 
 ## Current scope
 
-This scaffold only covers the execution path of:
+The framework currently covers the execution path of:
 
 - `HeavyFlavMuonSampleProducer`
-- the subset of `HeavyFlavBaseProducer` methods it directly calls
+- `HeavyFlavMinimalProducer`
+- the shared `HeavyFlavBaseProducer` services they call
 
 Implemented pieces:
 
 - explicit NanoAOD branch list
 - automatic object/attribute grouping from branch names
-- `RNTupleReader`-based input layer
+- `TTreeReader`-based input layer
 - `Event` object with event-level attachments
 - `Collection` / `ObjectView` object access layer
 - dynamic per-object attributes via `set("name", value)` and `extra<T>("name")`
-- minimal output model for branch declaration and filling
-- C++ `HeavyFlavBaseProducer` / `HeavyFlavMuonSampleProducer`
+- output model for branch declaration and filling
+- ROOT `TTree` output writing
+- C++ `HeavyFlavBaseProducer`, `HeavyFlavMuonSampleProducer`, and `HeavyFlavMinimalProducer`
+- JME corrections and propagation for AK4 jets, AK8 fatjets, subjets, and MET
+- PU and top-pt weights
+- fatjet gen matching
 
 Deferred pieces:
 
-- JME corrections
 - jet veto maps
 - tagger inference
 - mass regression inference beyond reading `particleNet_mass`
-- full gen-history matching
-- ROOT output writing
+- more complete gen-history matching beyond the current stored fatjet matching fields
 
 ## Object model
 
 ### Branch schema
 
-Input branches are declared explicitly by each runtime card's `read_branches` list, with types resolved from `configs/branches/*.yaml`.
+Input branches are declared explicitly through runtime card inheritance from `configs/common/read_branches_*.yaml`, plus any channel-only `read_branches` entries in the runtime card. Branch types are resolved from `configs/common/nano_branches_*.yaml`.
 
 Grouping rule:
 
@@ -85,12 +88,12 @@ if the codebase grows.
 
 ## Recommended next steps
 
-1. Replace the in-memory `OutputModel` with a real ROOT output writer, preferably another `RNTuple` writer.
-2. Keep channel-specific branch manifests in runtime YAML so each producer only requests the fields it needs.
+1. Keep channel-specific branch manifests in runtime YAML so each producer only requests the fields it needs.
+2. Add validation coverage for non-muon channels, starting with `minimal`.
 3. Add typed helper wrappers for common objects:
    - `MuonView`
    - `JetView`
    - `FatJetView`
 4. Implement full `load_gen_history()` and matching variables from the Python logic.
-5. Reintroduce JME corrections as a separate service, not inside the producer itself.
-6. Add a runner config layer to map input file, ntuple name, year, and producer selection from CLI or YAML.
+5. Implement jet veto maps.
+6. Move any remaining campaign-dependent constants into YAML-backed producer config.

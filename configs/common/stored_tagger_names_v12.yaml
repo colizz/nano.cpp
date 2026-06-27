@@ -1,0 +1,21 @@
+# Stored FatJet tagger names for muon-channel NanoAOD v12 runtime cards.
+stored_tagger_names:
+  - particleNetWithMass_H4qvsQCD
+  - particleNetWithMass_HbbvsQCD
+  - particleNetWithMass_HccvsQCD
+  - particleNetWithMass_QCD
+  - particleNetWithMass_TvsQCD
+  - particleNetWithMass_WvsQCD
+  - particleNetWithMass_ZvsQCD
+  - particleNet_QCD
+  - particleNet_QCD0HF
+  - particleNet_QCD1HF
+  - particleNet_QCD2HF
+  - particleNet_XbbVsQCD
+  - particleNet_XccVsQCD
+  - particleNet_XggVsQCD
+  - particleNet_XqqVsQCD
+  - particleNet_XteVsQCD
+  - particleNet_XtmVsQCD
+  - particleNet_XttVsQCD
+  - particleNet_massCorr

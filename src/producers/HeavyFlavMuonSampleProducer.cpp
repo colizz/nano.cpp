@@ -24,8 +24,8 @@ namespace nano {
  *   `tightId`, and `miniPFRelIso_all < 0.10`.
  * - Build loose-lepton collections for jet cleaning through
  *   `HeavyFlavBaseProducer::select_leptons()`.
- * - Run AK4/AK8/SubJet JME corrections and MET propagation through
- *   `HeavyFlavBaseProducer::correct_jets_and_met()`.
+ * - Compute AK4/AK8/SubJet JME corrections once, then apply the requested JME
+ *   variation and MET propagation through shared base-producer helpers.
  * - Require corrected MET > 50 GeV.
  * - Reconstruct the leptonic W from the selected muon and MET and require
  *   `pT(W_lep) > 100 GeV`.
@@ -124,10 +124,6 @@ bool HeavyFlavMuonSampleProducer::analyze_variation(Event &event, const JmeEvent
   out_.fill("muon_miniIso", mu.get<float>("miniPFRelIso_all"));
   out_.fill("leptonicW_pt", static_cast<float>(leptonic_w.Pt()));
   return true;
-}
-
-JmeEventResult HeavyFlavMuonSampleProducer::compute_jme_result(Event &event) const {
-  return compute_jme(event);
 }
 
 bool HeavyFlavMuonSampleProducer::analyze(Event &event) {

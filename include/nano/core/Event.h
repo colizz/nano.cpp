@@ -19,7 +19,7 @@ class Event {
 public:
   using LorentzVector = ROOT::Math::PtEtaPhiMVector;
 
-  // Constructing an Event loads a single RNTuple entry and provides an
+  // Constructing an Event loads a single ROOT tree entry and provides an
   // attachment space for producer-level derived data.
   Event(NanoReader &reader, std::size_t entry);
 

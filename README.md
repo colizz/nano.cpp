@@ -62,15 +62,17 @@ You do not need to write this code or worry about C++ syntax; agents will fill i
 
 ## Current Scope
 
-The implemented channel is:
+The implemented channels are:
 
 - `muon`: a heavy-flavour muon control region targeting semileptonic ttbar-like phase space, enriched in boosted top/W jets.
+- `minimal`: a lightweight boosted-AK8 stream that runs the shared lepton cleaning, JME, and fatjet preparation, then keeps the leading cleaned AK8 jet above the configured `channels.minimal.leading_fatjet_pt_min` threshold.
 
 Main files:
 
 - `app/nano_run.cpp`: local runner.
 - `app/nano_make_condor.cpp`: Condor submission builder.
 - `configs/run/`: runnable YAML cards.
+- `configs/common/`: shared NanoAOD branch catalogues, input branch manifests, and stored tagger manifests.
 - `configs/samples/`: dataset YAML files for batch submission.
 
 For agents: for framework details, read `docs/framework-structure.md`.
