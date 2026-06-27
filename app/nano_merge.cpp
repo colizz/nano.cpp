@@ -231,7 +231,12 @@ bool merge_group(const std::string &nickname, const std::string &variation, cons
 
 void copy_tree_contents(const fs::path &from, const fs::path &to) {
   fs::create_directories(to);
-  for (const auto &entry : fs::recursive_directory_iterator(from)) {
+  for (auto it = fs::recursive_directory_iterator(from); it != fs::recursive_directory_iterator(); ++it) {
+    const auto &entry = *it;
+    if (entry.is_directory() && entry.path().filename() == ".partials") {
+      it.disable_recursion_pending();
+      continue;
+    }
     const auto relative = fs::relative(entry.path(), from);
     const auto target = to / relative;
     if (entry.is_directory()) {
