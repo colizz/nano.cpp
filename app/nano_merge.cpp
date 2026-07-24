@@ -36,7 +36,8 @@ constexpr std::string_view kUsage =
     "Usage: nano_merge <output_dir> [--variations <list>] [--resume-from <tmp_merge_dir>]\n"
     "  <output_dir>: base Condor output directory; piece files are read from "
     "<output_dir>/pieces\n"
-    "  --variations: comma-separated variation list; omitted means all variations\n"
+    "  --variations: comma-separated variation list; omitted means all "
+    "variations\n"
     "  --resume-from: reuse a previous nano_merge temporary directory; "
     "completed groups already in the final or temporary "
     "directory are skipped or published";

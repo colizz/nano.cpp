@@ -407,7 +407,7 @@ void HeavyFlavBaseProducer::fill_fatjet_info(Event &event, const std::vector<Obj
   fill("mass", fj.mass());
   fill("rawpt", safe_object_float(fj, "rawPt", -1.0f));
   fill("parTmass", safe_object_float(fj, "rawMass", 0.0f) *
-                        safe_object_float(fj, "globalParT3_massCorrX2p", 0.0f));
+                       safe_object_float(fj, "globalParT3_massCorrX2p", 0.0f));
   fill("sdmass", fj.get<float>("msoftdrop"));
   fill("sdmass_uncorrected", safe_object_float(fj, "msoftdrop_uncorrected", 0.0f));
   fill("tau1", safe_object_float(fj, "tau1", 0.0f));
