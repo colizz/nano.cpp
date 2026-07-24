@@ -129,3 +129,6 @@ read_branches:
   - GenPart_status
   - GenPart_statusFlags
   - GenPart_genPartIdxMother
+  - LHE_Vpt
+  - LHEPart_pdgId
+  - LHEPart_pt

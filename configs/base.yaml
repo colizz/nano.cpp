@@ -341,9 +341,9 @@ jec:
       jes_uncertainties: [Total]
       jet:
         algo: AK4PFPuppi
-        jec_tag_mc: Summer24Prompt24_V3_MC
-        jec_tag_data: Summer24Prompt24_V3_DATA
-        jer_tag_mc: Summer24Prompt24_JRV1_MC
+        jec_tag_mc: Summer24Prompt24_V5_MC
+        jec_tag_data: Summer24Prompt24_V5_DATA
+        jer_tag_mc: Summer24Prompt24_JRV2_MC
       fatjet:
         algo: AK8PFPuppi
         jec_tag_mc: inherit
@@ -440,6 +440,27 @@ pu:
     2025:
       payload_subdir: Run3-25Prompt-Summer24-NanoAODv15/latest/puWeights_2025pp_Golden_Summer24_25ns_69200ub.json.gz
       correction_key: Collisions25_goldenJSON
+
+# Muon scale, smearing, and efficiency payloads. Campaign versions are kept
+# explicit so a runtime card can pin a dated payload for reproducibility.
+muon_corrections:
+  payload_dir: /cvmfs/cms-griddata.cern.ch/cat/metadata/MUO
+  campaigns:
+    2024_NanoAODv15:
+      payload_subdir: Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15
+      version: latest
+      scale_smearing_file: muon_scalesmearing.json.gz
+      sf_file: muon_Z.json.gz
+
+# NLO electroweak corrections for W/Z+jets and DY samples.
+nlo_ew:
+  payload_dir: data/vjets-ewk/2023-08-11
+  w_file: WJetsCorr_collection_ewk.root
+  z_file: ZJetsCorr_collection_ewk.root
+  w_histogram: evj_pTV_kappa_EW
+  z_histogram: eej_pTV_kappa_EW
+  w_uncertainty_histograms: [evj_pTV_d1kappa_EW, evj_pTV_d2kappa_EW, evj_pTV_d3kappa_EW]
+  z_uncertainty_histograms: [eej_pTV_d1kappa_EW, eej_pTV_d2kappa_EW, eej_pTV_d3kappa_EW]
 
 # Numeric year label written to the output `year` branch. The mapping follows
 # the historical Python producer convention, where split eras such as 2022EE

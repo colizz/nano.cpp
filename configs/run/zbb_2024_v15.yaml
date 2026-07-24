@@ -1,0 +1,20 @@
+# Zbb channel runtime card for 2024 v15.
+
+extends:
+  - ../base.yaml
+  - ../common/nano_branches_v15.yaml
+  - ../common/stored_tagger_names_v15.yaml
+  - ../common/read_branches_v15.yaml
+
+era: "2024"
+nano_version: "v15"
+
+preselection: Sum$(abs(FatJet_eta)<2.4)>1
+
+required_triggers:
+  - HLT_AK8PFJet380_SoftDropMass30
+  - HLT_AK8PFJet500
+
+channels:
+  zbb:
+    require_sv_cut: true

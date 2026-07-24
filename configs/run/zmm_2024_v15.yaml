@@ -1,0 +1,16 @@
+# Zmm channel runtime card for 2024 v15.
+
+extends:
+  - ../base.yaml
+  - ../common/nano_branches_v15.yaml
+  - ../common/stored_tagger_names_v15.yaml
+  - ../common/read_branches_v15.yaml
+
+era: "2024"
+nano_version: "v15"
+
+preselection: Sum$(Muon_pt>50 && abs(Muon_eta)<2.4 && Muon_highPtId)>0 && Sum$(Muon_pt>25 && abs(Muon_eta)<2.4 && Muon_highPtId)>1
+
+required_triggers:
+  - HLT_Mu50
+  - HLT_TkMu50

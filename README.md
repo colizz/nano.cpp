@@ -66,6 +66,8 @@ The implemented channels are:
 
 - `muon`: a heavy-flavour muon control region targeting semileptonic ttbar-like phase space, enriched in boosted top/W jets.
 - `minimal`: a lightweight boosted-AK8 stream that runs the shared lepton cleaning, JME, and fatjet preparation, then keeps the leading cleaned AK8 jet above the configured `channels.minimal.leading_fatjet_pt_min` threshold.
+- `zbb`: a 2024 NanoAOD v15 boosted dijet control region with two AK8 probes and an optional secondary-vertex requirement.
+- `zmm`: a 2024 NanoAOD v15 boosted `Z -> mumu` recoil control region with muon scale/smearing and efficiency scale factors.
 
 Main files:
 
@@ -105,6 +107,34 @@ build/nano_run \
   --num-events 5000
 ```
 
+The 2024 zbb and zmm channels use their matching runtime cards:
+
+```bash
+build/nano_run \
+  --input-files input.root \
+  --output-file zmm_2024.root \
+  --config configs/run/zmm_2024_v15.yaml \
+  --channel zmm \
+  --num-events 5000
+```
+
+Their muon payloads are resolved by campaign from
+`/cvmfs/cms-griddata.cern.ch/cat/metadata/MUO`. The 2024 card follows the
+campaign's `latest` directory by default; override
+`muon_corrections.campaigns.2024_NanoAODv15.version` to pin a dated release.
+
+For an end-to-end environment, build, run, and output check, use:
+
+```bash
+scripts/run_2024_z_channel.sh zmm mc
+scripts/run_2024_z_channel.sh zbb mc
+```
+
+The script accepts an optional input ROOT file, output directory, event limit,
+and variation list. Run `scripts/run_2024_z_channel.sh --help` for the complete
+argument order. When the input is omitted, it resolves one representative
+2024 NanoAOD v15 file with DAS.
+
 `--input-files` accepts one file or a comma-separated list. Local paths, `root://...` paths, and `/store/...` paths are supported.
 
 If `--variations` is omitted, it defaults to `nominal`. Outputs are always written with a variation suffix, so the example above writes `muon_2018_test_nominal.root`.
@@ -138,6 +168,10 @@ build/nano_make_condor \
   --num-events -1
 ```
 
+For example, replace the sample, runtime card, and channel with
+`configs/samples/zbb_2024_v15_MC.yaml`, `configs/run/zbb_2024_v15.yaml`, and
+`zbb` to submit the 2024 zbb workflow.
+
 This creates the requested Condor work directory, copies a merged config snapshot, packs the repository, and writes `submit.jdl`.
 
 Submit manually:
@@ -154,6 +188,10 @@ After jobs finish, return to the repository root and merge Condor pieces with:
 ```bash
 build/nano_merge /path/to/output
 ```
+
+To merge only selected output variations, pass a comma-separated list, for example
+`build/nano_merge /path/to/output --variations nominal`. If omitted, all supported
+variations found under `pieces/` are merged.
 
 Pass the base output directory, not the `pieces/` subdirectory. `nano_merge` reads input pieces from `<output-dir>/pieces/`.
 

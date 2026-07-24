@@ -27,10 +27,14 @@ read_branches:
   - Muon_eta
   - Muon_phi
   - Muon_mass
+  - Muon_charge
   - Muon_dxy
   - Muon_dz
   - Muon_tightId
   - Muon_looseId
+  - Muon_highPtId
+  - Muon_pfIsoId
+  - Muon_nTrackerLayers
   - Muon_miniPFRelIso_all
   - Electron_pt
   - Electron_eta
@@ -165,3 +169,7 @@ read_branches:
   - GenPart_status
   - GenPart_statusFlags
   - GenPart_genPartIdxMother
+  - SV_pt
+  - LHE_Vpt
+  - LHEPart_pdgId
+  - LHEPart_pt

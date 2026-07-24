@@ -15,6 +15,7 @@
 namespace nano {
 
 class JetMETCorrector;
+class NloEWWeightProducer;
 class PuWeightProducer;
 class TopPtWeightProducer;
 class FatjetGenMatching;
@@ -44,9 +45,26 @@ struct PuEraConfig {
   std::string correction_key;
 };
 
+struct MuonEraConfig {
+  std::string payload_subdir;
+  std::string version = "latest";
+  std::string scale_smearing_file = "muon_scalesmearing.json.gz";
+  std::string sf_file = "muon_Z.json.gz";
+};
+
 struct JetVetoMapEraConfig {
   std::string payload_subdir;
   std::string correction_key;
+};
+
+struct NloEWConfig {
+  std::string payload_dir;
+  std::string w_file;
+  std::string z_file;
+  std::string w_histogram;
+  std::string z_histogram;
+  std::vector<std::string> w_uncertainty_histograms;
+  std::vector<std::string> z_uncertainty_histograms;
 };
 
 struct BTagConfig {
@@ -86,6 +104,9 @@ struct ProducerConfig {
   std::unordered_map<std::string, JmeEraConfig> jme_eras;
   std::string pu_payload_dir;
   std::unordered_map<std::string, PuEraConfig> pu_eras;
+  std::string muon_payload_dir;
+  std::unordered_map<std::string, MuonEraConfig> muon_eras;
+  NloEWConfig nlo_ew;
   bool jet_veto_map_enabled = false;
   std::string jet_veto_map_payload_dir;
   std::string jet_veto_map_type = "jetvetomap";
@@ -113,8 +134,11 @@ protected:
   void select_leptons(Event &event) const;
   void apply_jme_and_select_jets(Event &event, const JmeEventResult &jme_result, JmeVariation variation) const;
   void load_gen_history(Event &event, std::vector<ObjectView> &fatjets) const;
+  float get_lhe_v_pt(Event &event) const;
+  float get_gen_v_pt(Event &event) const;
   void fill_base_event_info(Event &event, JmeVariation variation);
   void fill_fatjet_info(Event &event, const std::vector<ObjectView> &fatjets);
+  void fill_leading_fatjet_info(Event &event, const std::vector<ObjectView> &fatjets);
 
   ProducerConfig config_;
   float jet_cone_size_ = 0.8f;
@@ -122,6 +146,7 @@ protected:
   std::string subjet_name_ = "SubJet";
   std::string genfatjet_name_ = "GenJetAK8";
   std::unique_ptr<JetMETCorrector> jme_corrector_;
+  std::unique_ptr<NloEWWeightProducer> nlo_ew_weight_producer_;
   std::unique_ptr<PuWeightProducer> pu_weight_producer_;
   std::unique_ptr<TopPtWeightProducer> top_pt_weight_producer_;
   std::unique_ptr<FatjetGenMatching> fatjet_gen_matching_;

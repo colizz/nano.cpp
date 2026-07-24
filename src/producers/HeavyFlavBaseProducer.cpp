@@ -4,6 +4,7 @@
 #include "nano/core/Helpers.h"
 #include "nano/helpers/FatjetGenMatching.h"
 #include "nano/helpers/JetMETCorrector.h"
+#include "nano/helpers/NloEWWeightProducer.h"
 #include "nano/helpers/PuWeightProducer.h"
 #include "nano/helpers/TopPtWeightProducer.h"
 
@@ -75,6 +76,7 @@ void prepare_raw_kinematics(Event &event, std::string_view object_name) {
 
 HeavyFlavBaseProducer::HeavyFlavBaseProducer(ProducerConfig config) : config_(std::move(config)) {
   jme_corrector_ = std::make_unique<JetMETCorrector>(config_);
+  nlo_ew_weight_producer_ = std::make_unique<NloEWWeightProducer>(config_);
   pu_weight_producer_ = std::make_unique<PuWeightProducer>(config_);
   top_pt_weight_producer_ = std::make_unique<TopPtWeightProducer>(config_.era);
   fatjet_gen_matching_ = std::make_unique<FatjetGenMatching>();
@@ -106,14 +108,16 @@ void HeavyFlavBaseProducer::begin_file() {
   out_.branch("metphi", 0.0f);
   out_.branch("jetVetoFlag", std::int32_t{-99});
   out_.branch("genWeight", 1.0f);
+  out_.branch("LHE_Vpt", -1.0f);
   if (config_.include_lhe_weights) {
     out_.branch("LHEScaleWeight", std::vector<float>{});
   }
   pu_weight_producer_->begin_file(out_);
+  nlo_ew_weight_producer_->begin_file(out_);
   top_pt_weight_producer_->begin_file(out_);
 
   out_.branch("fj_1_is_qualified", false);
-  for (const auto *name : {"fj_1_pt", "fj_1_eta", "fj_1_phi", "fj_1_mass", "fj_1_rawpt", "fj_1_sdmass",
+  for (const auto *name : {"fj_1_pt", "fj_1_eta", "fj_1_phi", "fj_1_mass", "fj_1_rawpt", "fj_1_parTmass", "fj_1_sdmass",
                            "fj_1_sdmass_uncorrected",
                            "fj_1_tau1", "fj_1_tau2", "fj_1_tau3",
                            "fj_1_tau4", "fj_1_deltaR_sj12", "fj_1_sj1_pt", "fj_1_sj1_eta", "fj_1_sj1_phi",
@@ -138,6 +142,18 @@ void HeavyFlavBaseProducer::begin_file() {
                            "fj_1_Z_pt",       "fj_1_dr_W",       "fj_1_dr_W_daus",    "fj_1_W_pt",      "fj_1_dr_T",
                            "fj_1_dr_T_b",     "fj_1_dr_T_Wq_max","fj_1_dr_T_Wq_min",  "fj_1_T_pt"}) {
     out_.branch(name, 0.0f);
+  }
+
+  if (config_.channel == "zbb") {
+    std::vector<std::pair<std::string, OutputValue>> second_fatjet_branches;
+    for (const auto &[name, value] : out_.defaults()) {
+      if (name.rfind("fj_1_", 0) == 0) {
+        second_fatjet_branches.emplace_back("fj_2_" + name.substr(5), value);
+      }
+    }
+    for (auto &[name, value] : second_fatjet_branches) {
+      out_.branch(std::move(name), std::move(value));
+    }
   }
 }
 
@@ -271,6 +287,57 @@ void HeavyFlavBaseProducer::load_gen_history(Event &event, std::vector<ObjectVie
   fatjet_gen_matching_->process(event, fatjets);
 }
 
+float HeavyFlavBaseProducer::get_lhe_v_pt(Event &event) const {
+  if (!event.is_mc()) {
+    return -1.0f;
+  }
+
+  const auto sample_it = config_.channel_options.strings.find("sample_name");
+  const auto sample = sample_it == config_.channel_options.strings.end() ? std::string{} : sample_it->second;
+  const auto starts_with = [&](const std::string &prefix) { return sample.rfind(prefix, 0) == 0; };
+  const auto is_dy = starts_with("DYto") || starts_with("DYJetsTo");
+  const auto is_w = starts_with("Wto") || starts_with("WJetsTo");
+  const auto is_z = starts_with("Zto") || starts_with("ZJetsTo");
+  if (!is_dy && !is_w && !is_z) {
+    return -1.0f;
+  }
+  if (is_dy && event.has_physical_branch("LHE_Vpt")) {
+    return event.scalar<float>("LHE_Vpt");
+  }
+
+  const auto target_pdg_id = is_w ? 24 : 23;
+  float lhe_v_pt = -1.0f;
+  for (const auto &particle : event.collection("LHEPart").objects()) {
+    const auto pdg_id = std::abs(particle.get<std::int32_t>("pdgId"));
+    if (pdg_id == target_pdg_id) {
+      lhe_v_pt = std::max(lhe_v_pt, particle.pt());
+    }
+  }
+  if (lhe_v_pt < 0.0f && event.has_physical_branch("LHE_Vpt")) {
+    lhe_v_pt = event.scalar<float>("LHE_Vpt");
+  }
+  return lhe_v_pt;
+}
+
+float HeavyFlavBaseProducer::get_gen_v_pt(Event &event) const {
+  if (!event.is_mc()) {
+    return -1.0f;
+  }
+  float fallback = -1.0f;
+  float hard_process = -1.0f;
+  for (const auto &particle : event.collection("GenPart").objects()) {
+    const auto pdg_id = std::abs(particle.get<std::int32_t>("pdgId"));
+    if (pdg_id != 23 && pdg_id != 24) {
+      continue;
+    }
+    fallback = std::max(fallback, particle.pt());
+    if ((particle.get<std::int32_t>("statusFlags") & (1 << 13)) != 0) {
+      hard_process = std::max(hard_process, particle.pt());
+    }
+  }
+  return hard_process >= 0.0f ? hard_process : fallback;
+}
+
 // Reset and fill event-level output shared by all heavy-flavour channels:
 // identifiers, era/lumi labels, MET filters, L1 prefiring, lepton count, HT,
 // corrected MET, generator weight, optional LHE weights, PU weights, and top-pt
@@ -309,12 +376,14 @@ void HeavyFlavBaseProducer::fill_base_event_info(Event &event, JmeVariation vari
   out_.fill("metphi", event.get<float>("met_phi"));
   out_.fill("jetVetoFlag", event.has("jetVetoFlag") ? event.get<std::int32_t>("jetVetoFlag") : std::int32_t{-99});
   out_.fill("genWeight", event.is_mc() ? event.scalar<float>("genWeight") : 1.0f);
+  out_.fill("LHE_Vpt", get_lhe_v_pt(event));
   if (config_.include_lhe_weights) {
     out_.fill("LHEScaleWeight", variation == JmeVariation::Nominal && event.has_physical_branch("LHEScaleWeight")
                                     ? event.vector<float>("LHEScaleWeight")
                                     : std::vector<float>{});
   }
   pu_weight_producer_->fill(event, out_);
+  nlo_ew_weight_producer_->fill(event, out_);
   top_pt_weight_producer_->fill(event, out_);
 }
 
@@ -323,6 +392,36 @@ void HeavyFlavBaseProducer::fill_base_event_info(Event &event, JmeVariation vari
 // stored_tagger_names, and gen-matching branches use attributes attached by
 // load_gen_history().
 void HeavyFlavBaseProducer::fill_fatjet_info(Event &event, const std::vector<ObjectView> &fatjets) {
+  if (config_.channel != "zbb") {
+    fill_leading_fatjet_info(event, fatjets);
+    return;
+  }
+
+  if (!fatjets.empty() && fatjets[0].get<bool>("is_qualified")) {
+    fill_leading_fatjet_info(event, {fatjets[0]});
+  }
+  if (fatjets.size() < 2U || !fatjets[1].get<bool>("is_qualified")) {
+    return;
+  }
+
+  std::unordered_map<std::string, OutputValue> leading_values;
+  for (const auto &[name, value] : out_.values()) {
+    if (name.rfind("fj_1_", 0) == 0) {
+      leading_values.emplace(name, value);
+    }
+  }
+  fill_leading_fatjet_info(event, {fatjets[1]});
+  for (const auto &[name, value] : out_.values()) {
+    if (name.rfind("fj_1_", 0) == 0) {
+      out_.fill("fj_2_" + name.substr(5), value);
+    }
+  }
+  for (auto &[name, value] : leading_values) {
+    out_.fill(name, std::move(value));
+  }
+}
+
+void HeavyFlavBaseProducer::fill_leading_fatjet_info(Event &event, const std::vector<ObjectView> &fatjets) {
   if (fatjets.empty()) {
     return;
   }
@@ -335,6 +434,8 @@ void HeavyFlavBaseProducer::fill_fatjet_info(Event &event, const std::vector<Obj
   out_.fill("fj_1_phi", fj.phi());
   out_.fill("fj_1_mass", fj.mass());
   out_.fill("fj_1_rawpt", safe_object_float(fj, "rawPt", -1.0f));
+  out_.fill("fj_1_parTmass", safe_object_float(fj, "rawMass", 0.0f) *
+                                 safe_object_float(fj, "globalParT3_massCorrX2p", 0.0f));
   out_.fill("fj_1_sdmass", fj.get<float>("msoftdrop"));
   out_.fill("fj_1_sdmass_uncorrected", safe_object_float(fj, "msoftdrop_uncorrected", 0.0f));
   out_.fill("fj_1_tau1", safe_object_float(fj, "tau1", 0.0f));

@@ -36,8 +36,9 @@ constexpr std::array kAllowedVariations = {
 constexpr std::size_t kHaddChunkSize = 200;
 
 constexpr std::string_view kUsage =
-    "Usage: nano_merge <output_dir> [--resume-from <tmp_merge_dir>]\n"
+    "Usage: nano_merge <output_dir> [--variations <list>] [--resume-from <tmp_merge_dir>]\n"
     "  <output_dir>: base Condor output directory; piece files are read from <output_dir>/pieces\n"
+    "  --variations: comma-separated variation list; omitted means all variations\n"
     "  --resume-from: reuse a previous nano_merge temporary directory and skip groups whose temporary output already exists";
 
 std::string shell_quote(const fs::path &path) {
@@ -100,20 +101,52 @@ using FileGroup = std::vector<PieceEntry>;
 struct CliOptions {
   fs::path output_dir;
   fs::path resume_dir;
+  std::set<std::string> variations;
+  bool filter_variations = false;
 };
 
 CliOptions parse_args(int argc, char **argv) {
-  if (argc != 2 && argc != 4) {
+  if (argc < 2) {
     throw std::runtime_error(std::string(kUsage));
   }
   CliOptions options;
   options.output_dir = fs::path(argv[1]);
-  if (argc == 4) {
-    const std::string flag = argv[2];
-    if (flag != "--resume-from") {
-      throw std::runtime_error(std::string(kUsage));
+  bool has_resume = false;
+  bool has_variations = false;
+  for (int index = 2; index < argc; ++index) {
+    const std::string flag = argv[index];
+    if (flag == "--resume-from") {
+      if (has_resume || ++index >= argc) {
+        throw std::runtime_error(std::string(kUsage));
+      }
+      options.resume_dir = fs::path(argv[index]);
+      has_resume = true;
+      continue;
     }
-    options.resume_dir = fs::path(argv[3]);
+    if (flag == "--variations") {
+      if (has_variations || ++index >= argc) {
+        throw std::runtime_error(std::string(kUsage));
+      }
+      const std::string value = argv[index];
+      if (value.empty()) {
+        throw std::runtime_error(std::string(kUsage));
+      }
+      std::stringstream values(value);
+      std::string variation;
+      while (std::getline(values, variation, ',')) {
+        if (variation.empty() || allowed_variations().count(variation) == 0) {
+          throw std::runtime_error("Unknown variation in --variations: " + variation);
+        }
+        options.variations.insert(variation);
+      }
+      if (options.variations.empty()) {
+        throw std::runtime_error(std::string(kUsage));
+      }
+      options.filter_variations = true;
+      has_variations = true;
+      continue;
+    }
+    throw std::runtime_error(std::string(kUsage));
   }
   return options;
 }
@@ -281,6 +314,9 @@ int main(int argc, char **argv) {
     }
 
     const std::set<std::string> allowed = allowed_variations();
+    const auto selected = [&cli](const std::string &variation) {
+      return !cli.filter_variations || cli.variations.count(variation) != 0;
+    };
     // nickname -> files without variation
     std::map<std::string, FileGroup> no_variation;
     // variation -> nickname -> files
@@ -311,11 +347,17 @@ int main(int argc, char **argv) {
           std::cerr << "Skipping unknown variation: " << filename << "\n";
           continue;
         }
+        if (!selected(variation)) {
+          continue;
+        }
         by_variation[variation][nickname].push_back({idx, entry.path()});
         ++total_root;
         continue;
       }
       if (std::regex_match(filename, match, no_var_re)) {
+        if (!selected("nominal")) {
+          continue;
+        }
         const std::string nickname = match[1].str();
         const int idx = std::stoi(match[2].str());
         no_variation[nickname].push_back({idx, entry.path()});

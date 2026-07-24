@@ -3,6 +3,8 @@
 #include "nano/io/RootOutputFile.h"
 #include "nano/producers/HeavyFlavMinimalProducer.h"
 #include "nano/producers/HeavyFlavMuonSampleProducer.h"
+#include "nano/producers/HeavyFlavZbbSampleProducer.h"
+#include "nano/producers/HeavyFlavZmmSampleProducer.h"
 
 #include "runtime_common.h"
 
@@ -112,7 +114,7 @@ CliOptions parse_args(int argc, char **argv) {
   }
 
   if (opts.input_files.empty() || opts.output_file.empty() || opts.config_file.empty()) {
-    throw std::runtime_error("Usage: nano_run --input-files <files> --output-file <out.root> --config <card.yaml> [--channel muon|minimal] [--num-events -1] [--run-data] [--variations nominal,jes_up,...] [--set key=value]. If omitted, --variations defaults to nominal.");
+    throw std::runtime_error("Usage: nano_run --input-files <files> --output-file <out.root> --config <card.yaml> [--channel muon|minimal|zbb|zmm] [--num-events -1] [--run-data] [--variations nominal,jes_up,...] [--set key=value]. If omitted, --variations defaults to nominal.");
   }
   return opts;
 }
@@ -315,6 +317,37 @@ nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &
         item.second["correction_key"].as<std::string>(),
     };
   }
+  if (settings["muon_corrections"]) {
+    const auto node = settings["muon_corrections"];
+    config.muon_payload_dir = node["payload_dir"].as<std::string>();
+    for (const auto &item : node["campaigns"]) {
+      config.muon_eras[item.first.as<std::string>()] = {
+          item.second["payload_subdir"].as<std::string>(),
+          item.second["version"] ? item.second["version"].as<std::string>() : "latest",
+          item.second["scale_smearing_file"] ? item.second["scale_smearing_file"].as<std::string>() : "muon_scalesmearing.json.gz",
+          item.second["sf_file"] ? item.second["sf_file"].as<std::string>() : "muon_Z.json.gz",
+      };
+    }
+  }
+  if (settings["nlo_ew"]) {
+    const auto node = settings["nlo_ew"];
+    const auto uncertainty_histograms = [](const YAML::Node &histograms) {
+      std::vector<std::string> names;
+      for (const auto &histogram : histograms) {
+        names.push_back(histogram.as<std::string>());
+      }
+      return names;
+    };
+    config.nlo_ew = {
+        node["payload_dir"].as<std::string>(),
+        node["w_file"].as<std::string>(),
+        node["z_file"].as<std::string>(),
+        node["w_histogram"].as<std::string>(),
+        node["z_histogram"].as<std::string>(),
+        uncertainty_histograms(node["w_uncertainty_histograms"]),
+        uncertainty_histograms(node["z_uncertainty_histograms"]),
+    };
+  }
   if (settings["jet_veto_map"]) {
     const auto node = settings["jet_veto_map"];
     config.jet_veto_map_enabled = node["enabled"] ? node["enabled"].as<bool>() : false;
@@ -333,6 +366,12 @@ nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &
 }
 
 std::unique_ptr<nano::HeavyFlavBaseProducer> make_producer(const nano::ProducerConfig &config) {
+  if (config.channel == "zbb") {
+    return std::make_unique<nano::HeavyFlavZbbSampleProducer>(config);
+  }
+  if (config.channel == "zmm") {
+    return std::make_unique<nano::HeavyFlavZmmSampleProducer>(config);
+  }
   if (config.channel == "muon") {
     return std::make_unique<nano::HeavyFlavMuonSampleProducer>(config);
   }

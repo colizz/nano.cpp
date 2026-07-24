@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-find_package(ROOT REQUIRED COMPONENTS Core MathCore Physics RIO Tree TreePlayer)
+find_package(ROOT REQUIRED COMPONENTS Core Hist MathCore Physics RIO Tree TreePlayer)
 find_package(yaml-cpp REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 enable_testing()
@@ -25,15 +25,19 @@ add_library(nanoaodtools_cpp
   src/helpers/FatjetGenMatching.cpp
   src/helpers/JetMETCorrector.cpp
   src/helpers/JmeVariation.cpp
+  src/helpers/MuonCorrection.cpp
+  src/helpers/NloEWWeightProducer.cpp
   src/helpers/PuWeightProducer.cpp
   src/helpers/TopPtWeightProducer.cpp
   src/producers/HeavyFlavBaseProducer.cpp
   src/producers/HeavyFlavMinimalProducer.cpp
   src/producers/HeavyFlavMuonSampleProducer.cpp
+  src/producers/HeavyFlavZbbSampleProducer.cpp
+  src/producers/HeavyFlavZmmSampleProducer.cpp
 )
 
 target_include_directories(nanoaodtools_cpp PUBLIC include)
-target_link_libraries(nanoaodtools_cpp PUBLIC CMSJMECalculators ROOT::Core ROOT::MathCore ROOT::Physics ROOT::RIO ROOT::Tree ROOT::TreePlayer yaml-cpp)
+target_link_libraries(nanoaodtools_cpp PUBLIC CMSJMECalculators ROOT::Core ROOT::Hist ROOT::MathCore ROOT::Physics ROOT::RIO ROOT::Tree ROOT::TreePlayer yaml-cpp)
 
 add_executable(nano_run app/nano_run.cpp)
 target_link_libraries(nano_run PRIVATE nanoaodtools_cpp)
