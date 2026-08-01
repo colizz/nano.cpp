@@ -355,16 +355,16 @@ jec:
         jec_tag_data: inherit
         jer_tag_mc: inherit
     2025_NanoAODv15:
-      payload_subdir: Run3-25Prompt-Winter25-NanoAODv15
+      payload_subdir: Run3-25Prompt-Summer24-NanoAODv15
       jet_jerc_file: jet_jerc.json.gz
       fatjet_jerc_file: fatJet_jerc.json.gz
       met_xy_corr_era: ""
       jes_uncertainties: [Total]
       jet:
         algo: AK4PFPuppi
-        jec_tag_mc: Winter25Prompt25_V3_MC
-        jec_tag_data: Winter25Prompt25_V3_DATA
-        jer_tag_mc: Summer24Prompt25_JRV1_MC
+        jec_tag_mc: Summer24Prompt25_V3_MC
+        jec_tag_data: Summer24Prompt25_V3_DATA
+        jer_tag_mc: Summer24Prompt25_JRV2_MC
       fatjet:
         algo: AK8PFPuppi
         jec_tag_mc: inherit
