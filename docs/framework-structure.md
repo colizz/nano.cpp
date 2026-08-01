@@ -35,6 +35,7 @@
 
 - `src/producers/HeavyFlavMuonSampleProducer.cpp`: muon-channel event selection and channel-specific output branches.
 - `src/producers/HeavyFlavMinimalProducer.cpp`: minimal-channel leading-cleaned-AK8 selection and fatjet-only output.
+- `src/producers/HeavyFlavQCDSampleProducer.cpp`: QCD dijet selection, secondary-vertex matching, two-fatjet output, and optional channel-owned SV detail filling through `channels.qcd.fill_sv`.
 - `src/producers/HeavyFlavBaseProducer.cpp`: shared lepton selection, jet/MET correction hookup, output branch filling, and fatjet-level shared content.
 
 ## Python reference

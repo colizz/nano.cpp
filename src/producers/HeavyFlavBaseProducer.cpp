@@ -9,7 +9,6 @@
 #include "nano/helpers/TopPtWeightProducer.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <limits>
 #include <memory>
@@ -59,6 +58,10 @@ LorentzVector p4_from_raw_values(const ObjectView &obj) {
   const auto raw_pt = safe_object_float(obj, "rawPt", obj.pt());
   const auto raw_mass = safe_object_float(obj, "rawMass", obj.mass());
   return ObjectView::LorentzVector(raw_pt, obj.eta(), obj.phi(), raw_mass);
+}
+
+std::string fatjet_branch_name(std::size_t fatjet_index, std::string_view variable) {
+  return "fj_" + std::to_string(fatjet_index + 1U) + "_" + std::string(variable);
 }
 
 void prepare_raw_kinematics(Event &event, std::string_view object_name) {
@@ -116,45 +119,36 @@ void HeavyFlavBaseProducer::begin_file() {
   nlo_ew_weight_producer_->begin_file(out_);
   top_pt_weight_producer_->begin_file(out_);
 
-  out_.branch("fj_1_is_qualified", false);
-  for (const auto *name : {"fj_1_pt", "fj_1_eta", "fj_1_phi", "fj_1_mass", "fj_1_rawpt", "fj_1_parTmass", "fj_1_sdmass",
-                           "fj_1_sdmass_uncorrected",
-                           "fj_1_tau1", "fj_1_tau2", "fj_1_tau3",
-                           "fj_1_tau4", "fj_1_deltaR_sj12", "fj_1_sj1_pt", "fj_1_sj1_eta", "fj_1_sj1_phi",
-                           "fj_1_sj1_mass", "fj_1_sj1_rawpt", "fj_1_sj1_btagdeepcsv", "fj_1_sj2_pt", "fj_1_sj2_eta",
-                           "fj_1_sj2_phi", "fj_1_sj2_mass", "fj_1_sj2_rawpt", "fj_1_sj2_btagdeepcsv"}) {
-    out_.branch(name, 0.0f);
-  }
-  for (const auto &tagger : config_.tagger_names) {
-    out_.branch("fj_1_" + tagger, -99.0f);
-  }
+  constexpr std::string_view fatjet_float_variables[]{
+      "pt", "eta", "phi", "mass", "rawpt", "parTmass", "sdmass", "sdmass_uncorrected",
+      "tau1", "tau2", "tau3", "tau4", "deltaR_sj12", "sj1_pt", "sj1_eta", "sj1_phi",
+      "sj1_mass", "sj1_rawpt", "sj1_btagdeepcsv", "sj2_pt", "sj2_eta", "sj2_phi", "sj2_mass",
+      "sj2_rawpt", "sj2_btagdeepcsv", "dr_H", "dr_H_daus", "H_pt", "dr_Z", "dr_Z_daus", "Z_pt",
+      "dr_W", "dr_W_daus", "W_pt", "dr_T", "dr_T_b", "dr_T_Wq_max", "dr_T_Wq_min", "T_pt",
+  };
+  constexpr std::string_view fatjet_int_variables[]{
+      "genfj_nbhadrons", "genfj_nchadrons", "genfj_partonflavour", "nbhadrons", "nchadrons", "partonflavour",
+      "sj1_nbhadrons", "sj1_nchadrons", "sj1_partonflavour", "sj2_nbhadrons", "sj2_nchadrons",
+      "sj2_partonflavour", "H_decay", "Z_decay", "W_decay", "T_Wq_max_pdgId", "T_Wq_min_pdgId",
+  };
 
-  for (const auto *name : {"fj_1_genfj_nbhadrons",   "fj_1_genfj_nchadrons",   "fj_1_genfj_partonflavour",
-                           "fj_1_nbhadrons",         "fj_1_nchadrons",         "fj_1_partonflavour",
-                           "fj_1_sj1_nbhadrons",     "fj_1_sj1_nchadrons",     "fj_1_sj1_partonflavour",
-                           "fj_1_sj2_nbhadrons",     "fj_1_sj2_nchadrons",     "fj_1_sj2_partonflavour",
-                           "fj_1_H_decay",           "fj_1_Z_decay",           "fj_1_W_decay",
-                           "fj_1_T_Wq_max_pdgId",    "fj_1_T_Wq_min_pdgId"}) {
-    out_.branch(name, std::int32_t{0});
+  const auto num_output_fatjets = output_fatjet_count();
+  if (num_output_fatjets == 0U) {
+    throw std::logic_error("HeavyFlavBaseProducer requires at least one output fatjet slot");
   }
-
-  for (const auto *name : {"fj_1_dr_H",       "fj_1_dr_H_daus",  "fj_1_H_pt",         "fj_1_dr_Z",      "fj_1_dr_Z_daus",
-                           "fj_1_Z_pt",       "fj_1_dr_W",       "fj_1_dr_W_daus",    "fj_1_W_pt",      "fj_1_dr_T",
-                           "fj_1_dr_T_b",     "fj_1_dr_T_Wq_max","fj_1_dr_T_Wq_min",  "fj_1_T_pt"}) {
-    out_.branch(name, 0.0f);
-  }
-
-  if (config_.channel == "zbb") {
-    std::vector<std::pair<std::string, OutputValue>> second_fatjet_branches;
-    for (const auto &[name, value] : out_.defaults()) {
-      if (name.rfind("fj_1_", 0) == 0) {
-        second_fatjet_branches.emplace_back("fj_2_" + name.substr(5), value);
-      }
+  for (std::size_t fatjet_index = 0; fatjet_index < num_output_fatjets; ++fatjet_index) {
+    out_.branch(fatjet_branch_name(fatjet_index, "is_qualified"), false);
+    for (const auto variable : fatjet_float_variables) {
+      out_.branch(fatjet_branch_name(fatjet_index, variable), 0.0f);
     }
-    for (auto &[name, value] : second_fatjet_branches) {
-      out_.branch(std::move(name), std::move(value));
+    for (const auto &tagger : config_.tagger_names) {
+      out_.branch(fatjet_branch_name(fatjet_index, tagger), -99.0f);
+    }
+    for (const auto variable : fatjet_int_variables) {
+      out_.branch(fatjet_branch_name(fatjet_index, variable), std::int32_t{0});
     }
   }
+
 }
 
 // Build the explicit input schema from the runtime card. nano_run has already
@@ -387,125 +381,103 @@ void HeavyFlavBaseProducer::fill_base_event_info(Event &event, JmeVariation vari
   top_pt_weight_producer_->fill(event, out_);
 }
 
-// Fill the leading selected fatjet block. Values come from the JME-corrected
-// fatjet and its linked corrected subjets; tagger branches are driven by
+// Fill one selected fatjet slot. Values come from the JME-corrected fatjet and
+// its linked corrected subjets; tagger branches are driven by
 // stored_tagger_names, and gen-matching branches use attributes attached by
 // load_gen_history().
-void HeavyFlavBaseProducer::fill_fatjet_info(Event &event, const std::vector<ObjectView> &fatjets) {
-  if (config_.channel != "zbb") {
-    fill_leading_fatjet_info(event, fatjets);
+void HeavyFlavBaseProducer::fill_fatjet_info(Event &event, const std::vector<ObjectView> &fatjets,
+                                             std::size_t fatjet_index) {
+  if (fatjet_index >= output_fatjet_count()) {
+    throw std::out_of_range("Fatjet output index exceeds the configured number of slots");
+  }
+  if (fatjet_index >= fatjets.size() || !fatjets[fatjet_index].get<bool>("is_qualified")) {
     return;
   }
-
-  if (!fatjets.empty() && fatjets[0].get<bool>("is_qualified")) {
-    fill_leading_fatjet_info(event, {fatjets[0]});
-  }
-  if (fatjets.size() < 2U || !fatjets[1].get<bool>("is_qualified")) {
-    return;
-  }
-
-  std::unordered_map<std::string, OutputValue> leading_values;
-  for (const auto &[name, value] : out_.values()) {
-    if (name.rfind("fj_1_", 0) == 0) {
-      leading_values.emplace(name, value);
-    }
-  }
-  fill_leading_fatjet_info(event, {fatjets[1]});
-  for (const auto &[name, value] : out_.values()) {
-    if (name.rfind("fj_1_", 0) == 0) {
-      out_.fill("fj_2_" + name.substr(5), value);
-    }
-  }
-  for (auto &[name, value] : leading_values) {
-    out_.fill(name, std::move(value));
-  }
-}
-
-void HeavyFlavBaseProducer::fill_leading_fatjet_info(Event &event, const std::vector<ObjectView> &fatjets) {
-  if (fatjets.empty()) {
-    return;
-  }
-  const auto &fj = fatjets.front();
+  const auto &fj = fatjets[fatjet_index];
+  const auto prefix = fatjet_branch_name(fatjet_index, "");
+  const auto fill = [this, &prefix](std::string_view variable, const auto &value) {
+    out_.fill(prefix + std::string(variable), value);
+  };
   const auto subjets = fj.extra<std::vector<ObjectView>>("subjets");
 
-  out_.fill("fj_1_is_qualified", fj.get<bool>("is_qualified"));
-  out_.fill("fj_1_pt", fj.pt());
-  out_.fill("fj_1_eta", fj.eta());
-  out_.fill("fj_1_phi", fj.phi());
-  out_.fill("fj_1_mass", fj.mass());
-  out_.fill("fj_1_rawpt", safe_object_float(fj, "rawPt", -1.0f));
-  out_.fill("fj_1_parTmass", safe_object_float(fj, "rawMass", 0.0f) *
-                                 safe_object_float(fj, "globalParT3_massCorrX2p", 0.0f));
-  out_.fill("fj_1_sdmass", fj.get<float>("msoftdrop"));
-  out_.fill("fj_1_sdmass_uncorrected", safe_object_float(fj, "msoftdrop_uncorrected", 0.0f));
-  out_.fill("fj_1_tau1", safe_object_float(fj, "tau1", 0.0f));
-  out_.fill("fj_1_tau2", safe_object_float(fj, "tau2", 0.0f));
-  out_.fill("fj_1_tau3", safe_object_float(fj, "tau3", 0.0f));
-  out_.fill("fj_1_tau4", safe_object_float(fj, "tau4", 0.0f));
+  fill("is_qualified", fj.get<bool>("is_qualified"));
+  fill("pt", fj.pt());
+  fill("eta", fj.eta());
+  fill("phi", fj.phi());
+  fill("mass", fj.mass());
+  fill("rawpt", safe_object_float(fj, "rawPt", -1.0f));
+  fill("parTmass", safe_object_float(fj, "rawMass", 0.0f) *
+                        safe_object_float(fj, "globalParT3_massCorrX2p", 0.0f));
+  fill("sdmass", fj.get<float>("msoftdrop"));
+  fill("sdmass_uncorrected", safe_object_float(fj, "msoftdrop_uncorrected", 0.0f));
+  fill("tau1", safe_object_float(fj, "tau1", 0.0f));
+  fill("tau2", safe_object_float(fj, "tau2", 0.0f));
+  fill("tau3", safe_object_float(fj, "tau3", 0.0f));
+  fill("tau4", safe_object_float(fj, "tau4", 0.0f));
   for (const auto &tagger : config_.tagger_names) {
-    out_.fill("fj_1_" + tagger, safe_object_float(fj, tagger, -99.0f));
+    fill(tagger, safe_object_float(fj, tagger, -99.0f));
   }
   if (!subjets.empty()) {
-    out_.fill("fj_1_sj1_pt", subjets[0].pt());
-    out_.fill("fj_1_sj1_eta", subjets[0].eta());
-    out_.fill("fj_1_sj1_phi", subjets[0].phi());
-    out_.fill("fj_1_sj1_mass", subjets[0].mass());
-    out_.fill("fj_1_sj1_rawpt", safe_object_float(subjets[0], "rawPt", -1.0f));
-    out_.fill("fj_1_sj1_btagdeepcsv", safe_object_float(subjets[0], "btagDeepB", -1.0f));
-    out_.fill("fj_1_sj1_nbhadrons", safe_object_int(subjets[0], "nBHadrons", -1));
-    out_.fill("fj_1_sj1_nchadrons", safe_object_int(subjets[0], "nCHadrons", -1));
-    out_.fill("fj_1_sj1_partonflavour", safe_object_int(subjets[0], "partonFlavour", -1));
+    fill("sj1_pt", subjets[0].pt());
+    fill("sj1_eta", subjets[0].eta());
+    fill("sj1_phi", subjets[0].phi());
+    fill("sj1_mass", subjets[0].mass());
+    fill("sj1_rawpt", safe_object_float(subjets[0], "rawPt", -1.0f));
+    fill("sj1_btagdeepcsv", safe_object_float(subjets[0], "btagDeepB", -1.0f));
+    fill("sj1_nbhadrons", safe_object_int(subjets[0], "nBHadrons", -1));
+    fill("sj1_nchadrons", safe_object_int(subjets[0], "nCHadrons", -1));
+    fill("sj1_partonflavour", safe_object_int(subjets[0], "partonFlavour", -1));
   }
   if (subjets.size() > 1U) {
-    out_.fill("fj_1_deltaR_sj12", delta_r(subjets[0], subjets[1]));
-    out_.fill("fj_1_sj2_pt", subjets[1].pt());
-    out_.fill("fj_1_sj2_eta", subjets[1].eta());
-    out_.fill("fj_1_sj2_phi", subjets[1].phi());
-    out_.fill("fj_1_sj2_mass", subjets[1].mass());
-    out_.fill("fj_1_sj2_rawpt", safe_object_float(subjets[1], "rawPt", -1.0f));
-    out_.fill("fj_1_sj2_btagdeepcsv", safe_object_float(subjets[1], "btagDeepB", -1.0f));
-    out_.fill("fj_1_sj2_nbhadrons", safe_object_int(subjets[1], "nBHadrons", -1));
-    out_.fill("fj_1_sj2_nchadrons", safe_object_int(subjets[1], "nCHadrons", -1));
-    out_.fill("fj_1_sj2_partonflavour", safe_object_int(subjets[1], "partonFlavour", -1));
+    fill("deltaR_sj12", delta_r(subjets[0], subjets[1]));
+    fill("sj2_pt", subjets[1].pt());
+    fill("sj2_eta", subjets[1].eta());
+    fill("sj2_phi", subjets[1].phi());
+    fill("sj2_mass", subjets[1].mass());
+    fill("sj2_rawpt", safe_object_float(subjets[1], "rawPt", -1.0f));
+    fill("sj2_btagdeepcsv", safe_object_float(subjets[1], "btagDeepB", -1.0f));
+    fill("sj2_nbhadrons", safe_object_int(subjets[1], "nBHadrons", -1));
+    fill("sj2_nchadrons", safe_object_int(subjets[1], "nCHadrons", -1));
+    fill("sj2_partonflavour", safe_object_int(subjets[1], "partonFlavour", -1));
   } else {
-    out_.fill("fj_1_deltaR_sj12", 99.0f);
+    fill("deltaR_sj12", 99.0f);
   }
 
   const auto gen_fatjets = event.collection(genfatjet_name_).objects();
   const auto gen_idx = safe_object_int(fj, "genJetAK8Idx", -1);
   if (gen_idx >= 0 && static_cast<std::size_t>(gen_idx) < gen_fatjets.size()) {
     const auto &gen_fj = gen_fatjets[static_cast<std::size_t>(gen_idx)];
-    out_.fill("fj_1_genfj_nbhadrons", safe_object_int(gen_fj, "nBHadrons", -1));
-    out_.fill("fj_1_genfj_nchadrons", safe_object_int(gen_fj, "nCHadrons", -1));
-    out_.fill("fj_1_genfj_partonflavour", safe_object_int(gen_fj, "partonFlavour", -1));
+    fill("genfj_nbhadrons", safe_object_int(gen_fj, "nBHadrons", -1));
+    fill("genfj_nchadrons", safe_object_int(gen_fj, "nCHadrons", -1));
+    fill("genfj_partonflavour", safe_object_int(gen_fj, "partonFlavour", -1));
   } else {
-    out_.fill("fj_1_genfj_nbhadrons", std::int32_t{-1});
-    out_.fill("fj_1_genfj_nchadrons", std::int32_t{-1});
-    out_.fill("fj_1_genfj_partonflavour", std::int32_t{-1});
+    fill("genfj_nbhadrons", std::int32_t{-1});
+    fill("genfj_nchadrons", std::int32_t{-1});
+    fill("genfj_partonflavour", std::int32_t{-1});
   }
 
-  out_.fill("fj_1_nbhadrons", safe_object_int(fj, "nBHadrons", -1));
-  out_.fill("fj_1_nchadrons", safe_object_int(fj, "nCHadrons", -1));
-  out_.fill("fj_1_partonflavour", safe_object_int(fj, "partonFlavour", -1));
-  out_.fill("fj_1_dr_H", safe_object_float(fj, "dr_H", 99.0f));
-  out_.fill("fj_1_dr_H_daus", safe_object_float(fj, "dr_H_daus", 99.0f));
-  out_.fill("fj_1_H_pt", safe_object_float(fj, "H_pt", -1.0f));
-  out_.fill("fj_1_H_decay", safe_object_int(fj, "H_decay", 0));
-  out_.fill("fj_1_dr_Z", safe_object_float(fj, "dr_Z", 99.0f));
-  out_.fill("fj_1_dr_Z_daus", safe_object_float(fj, "dr_Z_daus", 99.0f));
-  out_.fill("fj_1_Z_pt", safe_object_float(fj, "Z_pt", -1.0f));
-  out_.fill("fj_1_Z_decay", safe_object_int(fj, "Z_decay", 0));
-  out_.fill("fj_1_dr_W", safe_object_float(fj, "dr_W", 99.0f));
-  out_.fill("fj_1_dr_W_daus", safe_object_float(fj, "dr_W_daus", 99.0f));
-  out_.fill("fj_1_W_pt", safe_object_float(fj, "W_pt", -1.0f));
-  out_.fill("fj_1_W_decay", safe_object_int(fj, "W_decay", 0));
-  out_.fill("fj_1_dr_T", safe_object_float(fj, "dr_T", 99.0f));
-  out_.fill("fj_1_dr_T_b", safe_object_float(fj, "dr_T_b", 99.0f));
-  out_.fill("fj_1_dr_T_Wq_max", safe_object_float(fj, "dr_T_Wq_max", 99.0f));
-  out_.fill("fj_1_dr_T_Wq_min", safe_object_float(fj, "dr_T_Wq_min", 99.0f));
-  out_.fill("fj_1_T_Wq_max_pdgId", safe_object_int(fj, "T_Wq_max_pdgId", 0));
-  out_.fill("fj_1_T_Wq_min_pdgId", safe_object_int(fj, "T_Wq_min_pdgId", 0));
-  out_.fill("fj_1_T_pt", safe_object_float(fj, "T_pt", -1.0f));
+  fill("nbhadrons", safe_object_int(fj, "nBHadrons", -1));
+  fill("nchadrons", safe_object_int(fj, "nCHadrons", -1));
+  fill("partonflavour", safe_object_int(fj, "partonFlavour", -1));
+  fill("dr_H", safe_object_float(fj, "dr_H", 99.0f));
+  fill("dr_H_daus", safe_object_float(fj, "dr_H_daus", 99.0f));
+  fill("H_pt", safe_object_float(fj, "H_pt", -1.0f));
+  fill("H_decay", safe_object_int(fj, "H_decay", 0));
+  fill("dr_Z", safe_object_float(fj, "dr_Z", 99.0f));
+  fill("dr_Z_daus", safe_object_float(fj, "dr_Z_daus", 99.0f));
+  fill("Z_pt", safe_object_float(fj, "Z_pt", -1.0f));
+  fill("Z_decay", safe_object_int(fj, "Z_decay", 0));
+  fill("dr_W", safe_object_float(fj, "dr_W", 99.0f));
+  fill("dr_W_daus", safe_object_float(fj, "dr_W_daus", 99.0f));
+  fill("W_pt", safe_object_float(fj, "W_pt", -1.0f));
+  fill("W_decay", safe_object_int(fj, "W_decay", 0));
+  fill("dr_T", safe_object_float(fj, "dr_T", 99.0f));
+  fill("dr_T_b", safe_object_float(fj, "dr_T_b", 99.0f));
+  fill("dr_T_Wq_max", safe_object_float(fj, "dr_T_Wq_max", 99.0f));
+  fill("dr_T_Wq_min", safe_object_float(fj, "dr_T_Wq_min", 99.0f));
+  fill("T_Wq_max_pdgId", safe_object_int(fj, "T_Wq_max_pdgId", 0));
+  fill("T_Wq_min_pdgId", safe_object_int(fj, "T_Wq_min_pdgId", 0));
+  fill("T_pt", safe_object_float(fj, "T_pt", -1.0f));
 }
 
 }  // namespace nano

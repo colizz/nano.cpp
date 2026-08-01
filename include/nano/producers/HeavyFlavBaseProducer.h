@@ -6,6 +6,7 @@
 #include "nano/helpers/JmeEventResult.h"
 #include "nano/helpers/JmeVariation.h"
 
+#include <cstddef>
 #include <memory>
 #include <cstdint>
 #include <string>
@@ -130,6 +131,7 @@ public:
   static std::vector<BranchSpec> default_schema(const ProducerConfig &config);
 
 protected:
+  virtual std::size_t output_fatjet_count() const { return 1U; }
   void prepare_common_objects(Event &event) const;
   void select_leptons(Event &event) const;
   void apply_jme_and_select_jets(Event &event, const JmeEventResult &jme_result, JmeVariation variation) const;
@@ -137,8 +139,7 @@ protected:
   float get_lhe_v_pt(Event &event) const;
   float get_gen_v_pt(Event &event) const;
   void fill_base_event_info(Event &event, JmeVariation variation);
-  void fill_fatjet_info(Event &event, const std::vector<ObjectView> &fatjets);
-  void fill_leading_fatjet_info(Event &event, const std::vector<ObjectView> &fatjets);
+  void fill_fatjet_info(Event &event, const std::vector<ObjectView> &fatjets, std::size_t fatjet_index);
 
   ProducerConfig config_;
   float jet_cone_size_ = 0.8f;

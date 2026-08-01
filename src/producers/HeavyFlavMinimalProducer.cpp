@@ -64,7 +64,7 @@ bool HeavyFlavMinimalProducer::analyze_variation(Event &event, const JmeEventRes
   }
 
   fill_base_event_info(event, variation);
-  fill_fatjet_info(event, std::vector<ObjectView>{leading_fatjet});
+  fill_fatjet_info(event, std::vector<ObjectView>{leading_fatjet}, 0U);
   return true;
 }
 

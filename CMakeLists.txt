@@ -32,6 +32,7 @@ add_library(nanoaodtools_cpp
   src/producers/HeavyFlavBaseProducer.cpp
   src/producers/HeavyFlavMinimalProducer.cpp
   src/producers/HeavyFlavMuonSampleProducer.cpp
+  src/producers/HeavyFlavQCDSampleProducer.cpp
   src/producers/HeavyFlavZbbSampleProducer.cpp
   src/producers/HeavyFlavZmmSampleProducer.cpp
 )

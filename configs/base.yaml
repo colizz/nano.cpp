@@ -19,6 +19,9 @@
 channels:
   minimal:
     leading_fatjet_pt_min: 400.0
+  qcd:
+    apply_sv_criteria: true
+    fill_sv: true
 
 # Output-level optional branches. Keep large vector branches disabled by
 # default and enable them in a channel card or with `--set` when needed.

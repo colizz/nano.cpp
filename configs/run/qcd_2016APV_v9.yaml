@@ -1,0 +1,39 @@
+# QCD channel runtime card for 2016APV NanoAOD v9.
+extends:
+  - ../base.yaml
+  - ../common/nano_branches_v9.yaml
+  - ../common/read_branches_v9.yaml
+
+era: "2016APV"
+nano_version: "v9"
+preselection: nFatJet>1
+
+# Use a reduced tagger list tailored to the QCD channel.
+stored_tagger_names:
+  - deepTagMD_HbbvsQCD
+  - deepTagMD_ZHbbvsQCD
+  - deepTagMD_ZHccvsQCD
+  - particleNetMD_QCD
+  - particleNetMD_Xbb
+  - particleNetMD_Xcc
+  - particleNetMD_Xqq
+  - particleNet_HbbvsQCD
+  - particleNet_HccvsQCD
+  - particleNet_QCD
+  - particleNet_mass
+
+additional_read_branches:
+  - SV_pt
+  - SV_eta
+  - SV_phi
+  - SV_mass
+  - SV_ntracks
+  - SV_dxy
+  - SV_dxySig
+  - SV_dlen
+  - SV_dlenSig
+  - SV_chi2
+  - SV_pAngle
+
+required_triggers:
+  - HLT_PFHT900

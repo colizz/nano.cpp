@@ -114,7 +114,7 @@ bool HeavyFlavZmmSampleProducer::analyze_variation(Event &event, const JmeEventR
   probe_jets.resize(1);
 
   fill_base_event_info(event, variation);
-  fill_fatjet_info(event, probe_jets);
+  fill_fatjet_info(event, probe_jets, 0U);
   out_.fill("passMuTrig", pass_trigger(event, config_.required_triggers));
   const auto &z = event.get<LorentzVector>("leptonicZ");
   out_.fill("leptonicZ_pt", static_cast<float>(z.Pt()));

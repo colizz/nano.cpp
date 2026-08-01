@@ -116,7 +116,7 @@ bool HeavyFlavMuonSampleProducer::analyze_variation(Event &event, const JmeEvent
   probe_jets.erase(probe_jets.begin() + 1, probe_jets.end());
 
   fill_base_event_info(event, variation);
-  fill_fatjet_info(event, probe_jets);
+  fill_fatjet_info(event, probe_jets, 0U);
 
   out_.fill("passMuTrig", pass_trigger(event, config_.required_triggers));
   out_.fill("muon_pt", mu.pt());

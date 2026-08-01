@@ -13,6 +13,9 @@ public:
   bool analyze_common(Event &event) override;
   bool analyze_variation(Event &event, const JmeEventResult &jme_result, JmeVariation variation) override;
 
+protected:
+  std::size_t output_fatjet_count() const override { return 2U; }
+
 private:
   bool require_sv_cut_ = true;
 };

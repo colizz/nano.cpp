@@ -75,7 +75,8 @@ bool HeavyFlavZbbSampleProducer::analyze_variation(Event &event, const JmeEventR
   }
 
   fill_base_event_info(event, variation);
-  fill_fatjet_info(event, jets);
+  fill_fatjet_info(event, jets, 0U);
+  fill_fatjet_info(event, jets, 1U);
   out_.fill("passHTTrig", safe_bool(event, "HLT_AK8PFJet380_SoftDropMass30"));
   out_.fill("genVpt", get_gen_v_pt(event));
   return true;
