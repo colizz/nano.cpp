@@ -1,0 +1,47 @@
+# QCD channel runtime card for 2017 NanoAOD v15.
+extends:
+  - ../base.yaml
+  - ../common/nano_branches_v15.yaml
+  - ../common/read_branches_v15_run2.yaml
+
+era: "2017"
+nano_version: "v15"
+preselection: nFatJet>1
+
+# Use a reduced tagger list tailored to the QCD channel.
+stored_tagger_names:
+  - globalParT3_QCD
+  - globalParT3_Xbb
+  - globalParT3_Xcc
+  - globalParT3_Xcs
+  - globalParT3_Xqq
+  - globalParT3_massCorrGeneric
+  - globalParT3_massCorrX2p
+  - particleNetLegacy_QCD
+  - particleNetLegacy_Xbb
+  - particleNetLegacy_Xcc
+  - particleNetLegacy_Xqq
+  - particleNetLegacy_mass
+  - particleNetWithMass_HbbvsQCD
+  - particleNetWithMass_HccvsQCD
+  - particleNetWithMass_QCD
+  - particleNet_QCD
+  - particleNet_XbbVsQCD
+  - particleNet_XccVsQCD
+  - particleNet_massCorr
+
+additional_read_branches:
+  - SV_pt
+  - SV_eta
+  - SV_phi
+  - SV_mass
+  - SV_ntracks
+  - SV_dxy
+  - SV_dxySig
+  - SV_dlen
+  - SV_dlenSig
+  - SV_chi2
+  - SV_pAngle
+
+required_triggers:
+  - HLT_PFHT1050

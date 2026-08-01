@@ -2542,6 +2542,9 @@ nano_branches:
           "HLT_PFHT1050":
             type: "bool"
             root_type: "Bool_t"
+          "HLT_PFHT900":
+            type: "bool"
+            root_type: "Bool_t"
           "HLT_PFHT180":
             type: "bool"
             root_type: "Bool_t"

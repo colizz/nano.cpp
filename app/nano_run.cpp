@@ -3,6 +3,7 @@
 #include "nano/io/RootOutputFile.h"
 #include "nano/producers/HeavyFlavMinimalProducer.h"
 #include "nano/producers/HeavyFlavMuonSampleProducer.h"
+#include "nano/producers/HeavyFlavQCDSampleProducer.h"
 
 #include "runtime_common.h"
 
@@ -112,7 +113,7 @@ CliOptions parse_args(int argc, char **argv) {
   }
 
   if (opts.input_files.empty() || opts.output_file.empty() || opts.config_file.empty()) {
-    throw std::runtime_error("Usage: nano_run --input-files <files> --output-file <out.root> --config <card.yaml> [--channel muon|minimal] [--num-events -1] [--run-data] [--variations nominal,jes_up,...] [--set key=value]. If omitted, --variations defaults to nominal.");
+    throw std::runtime_error("Usage: nano_run --input-files <files> --output-file <out.root> --config <card.yaml> [--channel muon|minimal|qcd] [--num-events -1] [--run-data] [--variations nominal,jes_up,...] [--set key=value]. If omitted, --variations defaults to nominal.");
   }
   return opts;
 }
@@ -203,6 +204,8 @@ nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &
   if (config.read_branches.empty()) {
     throw std::runtime_error("Missing or empty read_branches list in config");
   }
+  const auto additional_read_branches = nano::runtime::yaml_string_list(settings, "additional_read_branches");
+  config.read_branches.insert(config.read_branches.end(), additional_read_branches.begin(), additional_read_branches.end());
   if (settings["output"] && settings["output"]["include_lhe_weights"]) {
     config.include_lhe_weights = settings["output"]["include_lhe_weights"].as<bool>();
   }
@@ -338,6 +341,9 @@ std::unique_ptr<nano::HeavyFlavBaseProducer> make_producer(const nano::ProducerC
   }
   if (config.channel == "minimal") {
     return std::make_unique<nano::HeavyFlavMinimalProducer>(config);
+  }
+  if (config.channel == "qcd") {
+    return std::make_unique<nano::HeavyFlavQCDSampleProducer>(config);
   }
   throw std::runtime_error("Unsupported channel: " + config.channel);
 }
