@@ -66,7 +66,7 @@ The implemented channels are:
 
 - `muon`: a heavy-flavour muon control region targeting semileptonic ttbar-like phase space, enriched in boosted top/W jets.
 - `minimal`: a lightweight boosted-AK8 stream that runs the shared lepton cleaning, JME, and fatjet preparation, then keeps the leading cleaned AK8 jet above the configured `channels.minimal.leading_fatjet_pt_min` threshold.
-- `qcd`: a dijet control stream that retains both leading cleaned AK8 jets and requires at least one qualified fatjet (soft-drop mass requirement), with secondary-vertex matching enabled by default.
+- `qcd`: a dijet control region that retains the two leading cleaned AK8 jets and requires at least one qualified fatjet satisfying the soft-drop mass selection, with secondary-vertex matching enabled by default. The region is enriched in heavy-flavor QCD jets and provides gluon-enriched proxy samples for X->bb/cc calibration studies, including sfBDT-based methods.
 
 Main files:
 
