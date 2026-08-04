@@ -196,7 +196,7 @@ variations found under `pieces/` are merged.
 
 Pass the base output directory, not the `pieces/` subdirectory. `nano_merge` reads input pieces from `<output-dir>/pieces/`.
 
-It first writes merged ROOT files to a temporary directory, then copies all merged outputs back under `<output-dir>/`.
+It writes merged ROOT files to a temporary directory and copies each one under `<output-dir>/` as soon as its merge completes.
 
 ## Adding Channels
 
