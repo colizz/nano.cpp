@@ -111,7 +111,6 @@ void HeavyFlavBaseProducer::begin_file() {
   out_.branch("metphi", 0.0f);
   out_.branch("jetVetoFlag", std::int32_t{-99});
   out_.branch("genWeight", 1.0f);
-  out_.branch("LHE_Vpt", -1.0f);
   if (config_.include_lhe_weights) {
     out_.branch("LHEScaleWeight", std::vector<float>{});
   }
@@ -120,7 +119,8 @@ void HeavyFlavBaseProducer::begin_file() {
   top_pt_weight_producer_->begin_file(out_);
 
   constexpr std::string_view fatjet_float_variables[]{
-      "pt", "eta", "phi", "mass", "rawpt", "parTmass", "sdmass", "sdmass_uncorrected",
+      "pt", "eta", "phi", "mass", "rawpt", "gptmass_x2p", "gptmass_generic", "sdmass",
+      "sdmass_uncorrected",
       "tau1", "tau2", "tau3", "tau4", "deltaR_sj12", "sj1_pt", "sj1_eta", "sj1_phi",
       "sj1_mass", "sj1_rawpt", "sj1_btagdeepcsv", "sj2_pt", "sj2_eta", "sj2_phi", "sj2_mass",
       "sj2_rawpt", "sj2_btagdeepcsv", "dr_H", "dr_H_daus", "H_pt", "dr_Z", "dr_Z_daus", "Z_pt",
@@ -370,7 +370,6 @@ void HeavyFlavBaseProducer::fill_base_event_info(Event &event, JmeVariation vari
   out_.fill("metphi", event.get<float>("met_phi"));
   out_.fill("jetVetoFlag", event.has("jetVetoFlag") ? event.get<std::int32_t>("jetVetoFlag") : std::int32_t{-99});
   out_.fill("genWeight", event.is_mc() ? event.scalar<float>("genWeight") : 1.0f);
-  out_.fill("LHE_Vpt", get_lhe_v_pt(event));
   if (config_.include_lhe_weights) {
     out_.fill("LHEScaleWeight", variation == JmeVariation::Nominal && event.has_physical_branch("LHEScaleWeight")
                                     ? event.vector<float>("LHEScaleWeight")
@@ -406,8 +405,9 @@ void HeavyFlavBaseProducer::fill_fatjet_info(Event &event, const std::vector<Obj
   fill("phi", fj.phi());
   fill("mass", fj.mass());
   fill("rawpt", safe_object_float(fj, "rawPt", -1.0f));
-  fill("parTmass", safe_object_float(fj, "rawMass", 0.0f) *
-                       safe_object_float(fj, "globalParT3_massCorrX2p", 0.0f));
+  const auto raw_mass = safe_object_float(fj, "rawMass", 0.0f);
+  fill("gptmass_x2p", raw_mass * safe_object_float(fj, "globalParT3_massCorrX2p", 0.0f));
+  fill("gptmass_generic", raw_mass * safe_object_float(fj, "globalParT3_massCorrGeneric", 0.0f));
   fill("sdmass", fj.get<float>("msoftdrop"));
   fill("sdmass_uncorrected", safe_object_float(fj, "msoftdrop_uncorrected", 0.0f));
   fill("tau1", safe_object_float(fj, "tau1", 0.0f));

@@ -54,6 +54,7 @@ void HeavyFlavZmmSampleProducer::begin_file() {
   out_.branch("passMuTrig", false);
   out_.branch("leptonicZ_pt", 0.0f);
   out_.branch("leptonicZ_mass", 0.0f);
+  out_.branch("lheVpt", -1.0f);
   out_.branch("genVpt", -1.0f);
   for (int index = 0; index < 2; ++index) {
     const auto prefix = "muon" + std::to_string(index) + "_";
@@ -119,6 +120,7 @@ bool HeavyFlavZmmSampleProducer::analyze_variation(Event &event, const JmeEventR
   const auto &z = event.get<LorentzVector>("leptonicZ");
   out_.fill("leptonicZ_pt", static_cast<float>(z.Pt()));
   out_.fill("leptonicZ_mass", static_cast<float>(z.M()));
+  out_.fill("lheVpt", get_lhe_v_pt(event));
   out_.fill("genVpt", get_gen_v_pt(event));
   for (std::size_t index = 0; index < muons.size(); ++index) {
     const auto prefix = "muon" + std::to_string(index) + "_";
