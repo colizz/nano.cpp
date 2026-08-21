@@ -15,6 +15,7 @@ public:
   bool analyze_variation(Event &event, const JmeEventResult &jme_result, JmeVariation variation) override;
 
 private:
+  bool select_muons(Event &event, JmeVariation variation);
   MuonCorrection muon_correction_;
 };
 

@@ -14,3 +14,10 @@ preselection: Sum$(Muon_pt>50 && abs(Muon_eta)<2.4 && Muon_highPtId)>0 && Sum$(M
 required_triggers:
   - HLT_Mu50
   - HLT_TkMu50
+
+output:
+  include_lhe_weights: true
+
+additional_read_branches:
+  - LHEScaleWeight
+  - LHEPdfWeight

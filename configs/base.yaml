@@ -26,10 +26,10 @@ channels:
 # Output-level optional branches. Keep large vector branches disabled by
 # default and enable them in a channel card or with `--set` when needed.
 output:
-  # Copy the input `LHEScaleWeight` vector into nominal output. This is useful
-  # for MC validation or scale-envelope studies. If enabled for data or an input
-  # without the branch, the output branch is present and filled with an empty
-  # vector.
+  # Copy the input `LHEScaleWeight` and `LHEPdfWeight` vectors into nominal
+  # output. This is useful for MC validation or theory-uncertainty studies. If
+  # enabled for data or an input without the branch, the output branch is
+  # present and filled with an empty vector.
   include_lhe_weights: false
 
 # Certified luminosity masks used when `nano_run --run-data` is enabled.
@@ -448,6 +448,9 @@ pu:
 # explicit so a runtime card can pin a dated payload for reproducibility.
 muon_corrections:
   payload_dir: /cvmfs/cms-griddata.cern.ch/cat/metadata/MUO
+  # CMSJMECalculators expects a deterministic four-input stdflat correction.
+  smearing_file: data/muon-smearing/stdflat.json.gz
+  smearing_tool: stdflat
   campaigns:
     2024_NanoAODv15:
       payload_subdir: Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15
@@ -458,12 +461,10 @@ muon_corrections:
 # NLO electroweak corrections for W/Z+jets and DY samples.
 nlo_ew:
   payload_dir: data/vjets-ewk/2023-08-11
-  w_file: WJetsCorr_collection_ewk.root
-  z_file: ZJetsCorr_collection_ewk.root
-  w_histogram: evj_pTV_kappa_EW
-  z_histogram: eej_pTV_kappa_EW
-  w_uncertainty_histograms: [evj_pTV_d1kappa_EW, evj_pTV_d2kappa_EW, evj_pTV_d3kappa_EW]
-  z_uncertainty_histograms: [eej_pTV_d1kappa_EW, eej_pTV_d2kappa_EW, eej_pTV_d3kappa_EW]
+  w_file: WJetsCorr_collection_ewk.json.gz
+  z_file: ZJetsCorr_collection_ewk.json.gz
+  w_correction: evj_pTV_EW
+  z_correction: eej_pTV_EW
 
 # Numeric year label written to the output `year` branch. The mapping follows
 # the historical Python producer convention, where split eras such as 2022EE

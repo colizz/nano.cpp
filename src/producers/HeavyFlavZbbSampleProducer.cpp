@@ -25,8 +25,8 @@ bool bool_option(const ProducerConfig &config, const std::string &key, bool fall
  *   tagging studies.
  *
  * Event selection implemented in this producer
- * - Require two corrected AK8 jets with pt > 450/200 GeV.
- * - Require the two leading AK8 jets to satisfy |DeltaPhi| > pi/2.
+ * - Require two corrected AK8 jets with pt >= 400/200 GeV.
+ * - Require the two leading AK8 jets to satisfy |DeltaPhi| >= pi/2.
  * - Require at least two secondary vertices when require_sv_cut is enabled.
  */
 
@@ -53,7 +53,7 @@ bool HeavyFlavZbbSampleProducer::analyze_variation(Event &event, const JmeEventR
   apply_jme_and_select_jets(event, jme_result, variation);
   auto fatjets = event.get<std::vector<ObjectView>>("fatjets");
   constexpr float pi = 3.14159265358979323846f;
-  if (fatjets.size() < 2U || fatjets[0].pt() < 450.0f || fatjets[1].pt() < 200.0f ||
+  if (fatjets.size() < 2U || fatjets[0].pt() < 400.0f || fatjets[1].pt() < 200.0f ||
       std::abs(delta_phi(fatjets[0], fatjets[1])) < 0.5f * pi) {
     return false;
   }

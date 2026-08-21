@@ -67,8 +67,8 @@ The implemented channels are:
 - `muon`: a heavy-flavour muon control region targeting semileptonic ttbar-like phase space, enriched in boosted top/W jets.
 - `minimal`: a lightweight boosted-AK8 stream that runs the shared lepton cleaning, JME, and fatjet preparation, then keeps the leading cleaned AK8 jet above the configured `channels.minimal.leading_fatjet_pt_min` threshold.
 - `qcd`: a dijet control region that retains the two leading cleaned AK8 jets and requires at least one qualified fatjet satisfying the soft-drop mass selection, with secondary-vertex matching enabled by default. The region is enriched in heavy-flavor QCD jets and provides gluon-enriched proxy samples for X->bb/cc calibration studies, including sfBDT-based methods.
-- `zbb`: a 2024 NanoAOD v15 boosted dijet control region with two AK8 probes and an optional secondary-vertex requirement.
-- `zmm`: a 2024 NanoAOD v15 boosted `Z -> mumu` recoil control region with muon scale/smearing and efficiency scale factors.
+- `zbb`: a 2024 NanoAOD v15 boosted dijet control region requiring two corrected AK8 jets with leading/subleading pT >= 400/200 GeV and |DeltaPhi| >= pi/2. It stores both probe jets and can require at least two secondary vertices.
+- `zmm`: a 2024 NanoAOD v15 boosted `Z -> mumu` recoil control region requiring exactly two isolated opposite-sign muons with pT >= 60/30 GeV, dimuon pT >= 400 GeV, and 70 <= m(mumu) <= 110 GeV. It stores the leading corrected AK8 jet separated from both muons and provides muon scale/smearing variations and efficiency scale factors.
 
 Main files:
 
@@ -117,24 +117,33 @@ build/nano_run \
   --config configs/run/zmm_2024_v15.yaml \
   --channel zmm \
   --num-events 5000
+
+build/nano_run \
+  --input-files input.root \
+  --output-file zbb_2024.root \
+  --config configs/run/zbb_2024_v15.yaml \
+  --channel zbb \
+  --num-events 5000
 ```
 
 Their muon payloads are resolved by campaign from
 `/cvmfs/cms-griddata.cern.ch/cat/metadata/MUO`. The 2024 card follows the
 campaign's `latest` directory by default; override
 `muon_corrections.campaigns.2024_NanoAODv15.version` to pin a dated release.
+Scale and resolution corrections are applied with the vendored
+`MuonVariationsCalculator`. Its deterministic smearing input hashes
+`(pt, eta, phi, event seed)`, whereas the official payload's
+`RandomSmearing` correction hashes `(event, luminosityBlock, phi)`. Both are
+uniform deterministic random sources, but their event-by-event MC smearing
+values are intentionally not identical.
 
-For an end-to-end environment, build, run, and output check, use:
-
-```bash
-scripts/run_2024_z_channel.sh zmm mc
-scripts/run_2024_z_channel.sh zbb mc
-```
-
-The script accepts an optional input ROOT file, output directory, event limit,
-and variation list. Run `scripts/run_2024_z_channel.sh --help` for the complete
-argument order. When the input is omitted, it resolves one representative
-2024 NanoAOD v15 file with DAS.
+The W/Z NLO electroweak weights use the correctionlib payloads under
+`data/vjets-ewk/2023-08-11`. The original ROOT files remain in that directory
+as validation references; production reads only the `.json.gz` files. The zbb
+and zmm cards preserve the input `LHEScaleWeight` and `LHEPdfWeight` vectors,
+including their metadata, for later theory-uncertainty studies. Their NLO EW
+outputs include symmetric 50% correction uncertainties. Other channels can
+enable the same LHE preservation with `output.include_lhe_weights=true`.
 
 `--input-files` accepts one file or a comma-separated list. Local paths, `root://...` paths, and `/store/...` paths are supported.
 
@@ -145,10 +154,16 @@ Useful options:
 ```bash
 --tree-name Events
 --set output.include_lhe_weights=true
---variations nominal,jes_up,jes_down
+--variations nominal,muon_scale_up,muon_scale_down,muon_smear_up,muon_smear_down
 ```
 
-`--variations` takes a comma-separated list and writes one ROOT file per requested variation. Supported JME names currently include `nominal`, `jes_up`, `jes_down`, `jer_up`, `jer_down`, `met_up`, and `met_down`.
+`--variations` takes a comma-separated list and writes one ROOT file per
+requested variation. Supported names are `nominal`, `jes_up`, `jes_down`,
+`jer_up`, `jer_down`, `met_up`, `met_down`, `muon_scale_up`,
+`muon_scale_down`, `muon_smear_up`, and `muon_smear_down`. Muon variations
+are available only for zmm MC and rerun the full dimuon selection, so their
+event counts may differ. A muon variation uses nominal JME, and a JME
+variation uses nominal muons.
 
 ## Run Validation
 

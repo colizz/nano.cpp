@@ -508,6 +508,10 @@ std::size_t JetMETCorrector::variation_index(const std::vector<std::string> &ava
       allow_missing = true;
       break;
     case JmeVariation::Nominal:
+    case JmeVariation::MuonScaleUp:
+    case JmeVariation::MuonScaleDown:
+    case JmeVariation::MuonSmearUp:
+    case JmeVariation::MuonSmearDown:
       index = find_label("nominal");
       break;
   }

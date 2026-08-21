@@ -45,8 +45,12 @@ with open("job_manifest.json") as handle:
     jobs = {int(job["index"]): job for job in json.load(handle)["jobs"]}
 
 job = jobs[job_index]
+sample_name = job.get("nickname")
+if not isinstance(sample_name, str) or not sample_name.strip():
+    raise RuntimeError("Missing sample nickname for job %d" % job_index)
 print("FINAL_OUTPUT=" + shlex.quote(job["output_file"]))
 print("INPUTS=" + shlex.quote(",".join(job["inputs"])))
+print("SAMPLE_NAME=" + shlex.quote(sample_name))
 PY
 )"
 
@@ -87,6 +91,7 @@ run_one_input() {
     --num-events "${NUM_EVENTS}"
     --channel "${CHANNEL}"
     --config "${CONFIG}"
+    --set "channels.${CHANNEL}.sample_name=${SAMPLE_NAME}"
   )
 
   cmd+=(--variations "${VARIATIONS}")

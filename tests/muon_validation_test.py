@@ -331,10 +331,16 @@ def compare_lhe_weights(expected, output, max_expected_entries=None, report=None
     rf, rt = tree(expected)
     of, ot = tree(output)
     try:
-        if "LHEScaleWeight" not in branch_names(ot):
-            raise AssertionError("output is missing LHEScaleWeight")
-        if "LHEScaleWeight" not in branch_names(rt):
-            raise AssertionError(f"expected source is missing LHEScaleWeight: {expected}")
+        branches = ("LHEScaleWeight", "LHEPdfWeight")
+        for branch in branches:
+            if branch not in branch_names(ot):
+                raise AssertionError(f"output is missing {branch}")
+            if branch not in branch_names(rt):
+                raise AssertionError(f"expected source is missing {branch}: {expected}")
+            input_title = rt.GetBranch(branch).GetTitle()
+            output_title = ot.GetBranch(branch).GetTitle()
+            if input_title != output_title:
+                raise AssertionError(f"{branch} title differs: expected={input_title!r} output={output_title!r}")
         out_entries = keyed_entries(ot)
         expected_keys = set(out_entries)
         ref_entries = {}
@@ -348,21 +354,25 @@ def compare_lhe_weights(expected, output, max_expected_entries=None, report=None
                     break
         missing_keys = sorted(expected_keys - set(ref_entries))
         if missing_keys:
-            raise AssertionError(f"LHEScaleWeight expected source is missing {len(missing_keys)} output event keys")
+            raise AssertionError(f"LHE weight source is missing {len(missing_keys)} output event keys")
         common_keys = sorted(expected_keys)
-        compared_values = 0
+        compared_values = {branch: 0 for branch in branches}
         for key in common_keys:
             rt.GetEntry(ref_entries[key])
             ot.GetEntry(out_entries[key])
-            ref_vals = list(getattr(rt, "LHEScaleWeight"))
-            out_vals = list(getattr(ot, "LHEScaleWeight"))
-            if len(ref_vals) != len(out_vals):
-                raise AssertionError(f"LHEScaleWeight length differs for event={key}: expected={len(ref_vals)} output={len(out_vals)}")
-            for idx, (rv, ov) in enumerate(zip(ref_vals, out_vals)):
-                compared_values += 1
-                if abs(float(ov) - float(rv)) > 1.0e-6 + 1.0e-6 * abs(float(rv)):
-                    raise AssertionError(f"LHEScaleWeight differs for event={key} index={idx}: expected={rv} output={ov}")
-        line = f"LHEScaleWeight copied from input: common_events={len(common_keys)} values={compared_values}"
+            for branch in branches:
+                ref_vals = list(getattr(rt, branch))
+                out_vals = list(getattr(ot, branch))
+                if len(ref_vals) != len(out_vals):
+                    raise AssertionError(f"{branch} length differs for event={key}: expected={len(ref_vals)} output={len(out_vals)}")
+                for idx, (rv, ov) in enumerate(zip(ref_vals, out_vals)):
+                    compared_values[branch] += 1
+                    if abs(float(ov) - float(rv)) > 1.0e-6 + 1.0e-6 * abs(float(rv)):
+                        raise AssertionError(f"{branch} differs for event={key} index={idx}: expected={rv} output={ov}")
+        line = "LHE weights copied from input: common_events=%d %s" % (
+            len(common_keys),
+            " ".join(f"{branch}={compared_values[branch]}" for branch in branches),
+        )
         if report:
             report.line(line)
         else:

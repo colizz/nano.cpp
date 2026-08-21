@@ -41,9 +41,31 @@ What it is meant to check:
 - Required output branches are present.
 - Event selection and key scalar/vector branch values remain compatible with the stored references.
 - JME variation output naming and propagation remain stable for the monitored branches.
-- LHE weight copying is checked for the 2016APV MC case with `output.include_lhe_weights=true`.
+- LHE scale/PDF weight copying and branch-title preservation are checked for the 2016APV MC case with `output.include_lhe_weights=true`.
 
 Some correction-dependent branches are intentionally excluded from strict value comparisons when the C++ implementation uses newer correctionlib/CMSJMECalculators behavior than the old reference production. They are still monitored for presence and reported where relevant.
+
+## Correction equivalence tests
+
+Two fast CTest targets cover the correction migrations:
+
+```bash
+ctest --test-dir build -R 'muon_external_equivalence|vjets_ewk_json' --output-on-failure
+```
+
+- `muon_external_equivalence` compares the old scale/smear formulas with
+  `MuonVariationsCalculator` for data nominal and all five MC outputs while
+  holding the four-input random correction and seed fixed.
+- `vjets_ewk_json` compares every W/Z EWK bin and the nominal/up/down weights
+  between the retained ROOT references and the production correctionlib JSON
+  payloads, including the 100 and 6500 GeV boundaries and overflow.
+
+Regenerate the V+jets payloads after intentionally updating the ROOT
+references with:
+
+```bash
+python3 data/vjets-ewk/convert_root_to_json.py
+```
 
 ## JME bundle I/O debug diagnostic
 

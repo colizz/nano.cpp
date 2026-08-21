@@ -36,8 +36,8 @@ void fill_sf(OutputModel &out, const std::string &name, const MuonSFResult &sf) 
  *
  * Event selection implemented in this producer
  * - Apply the configured muon scale correction and MC resolution smearing.
- * - Require exactly two isolated opposite-sign muons with pt > 60/30 GeV.
- * - Require dimuon pt > 450 GeV and 70 < mass < 110 GeV.
+ * - Require exactly two isolated opposite-sign muons with pt >= 60/30 GeV.
+ * - Require dimuon pt >= 400 GeV and 70 <= mass <= 110 GeV.
  * - Require a corrected AK8 jet separated from both muons by DeltaR > 0.8.
  * - Keep only the leading separated AK8 jet for output.
  */
@@ -71,8 +71,28 @@ void HeavyFlavZmmSampleProducer::begin_file() {
 
 bool HeavyFlavZmmSampleProducer::analyze_common(Event &event) {
   auto muons = event.collection("Muon").objects();
-  muon_correction_.correct(event, muons);
+  auto variations = muon_correction_.produce(event, muons);
+  event.set("muon_variations", std::move(variations));
+  muon_correction_.apply(event.get<MuonVariationsCalculator::result_t>("muon_variations"), JmeVariation::Nominal, muons);
+  prepare_common_objects(event);
 
+  const auto candidates = {JmeVariation::Nominal, JmeVariation::MuonScaleUp, JmeVariation::MuonScaleDown,
+                           JmeVariation::MuonSmearUp, JmeVariation::MuonSmearDown};
+  bool passes_any_variation = false;
+  for (const auto variation : candidates) {
+    if (!event.is_mc() && variation != JmeVariation::Nominal) {
+      continue;
+    }
+    passes_any_variation = select_muons(event, variation) || passes_any_variation;
+  }
+  muons = event.collection("Muon").objects();
+  muon_correction_.apply(event.get<MuonVariationsCalculator::result_t>("muon_variations"), JmeVariation::Nominal, muons);
+  return passes_any_variation;
+}
+
+bool HeavyFlavZmmSampleProducer::select_muons(Event &event, JmeVariation variation) {
+  auto muons = event.collection("Muon").objects();
+  muon_correction_.apply(event.get<MuonVariationsCalculator::result_t>("muon_variations"), variation, muons);
   std::vector<ObjectView> selected;
   for (auto &muon : muons) {
     const auto passes_id = (muon.pt() > 15.0f && muon.get<bool>("looseId")) ||
@@ -91,16 +111,18 @@ bool HeavyFlavZmmSampleProducer::analyze_common(Event &event) {
   }
 
   const auto z = selected[0].p4() + selected[1].p4();
-  if (z.Pt() < 450.0 || z.M() < 70.0 || z.M() > 110.0) {
+  if (z.Pt() < 400.0 || z.M() < 70.0 || z.M() > 110.0) {
     return false;
   }
   event.set("muons", selected);
   event.set("leptonicZ", z);
-  prepare_common_objects(event);
   return true;
 }
 
 bool HeavyFlavZmmSampleProducer::analyze_variation(Event &event, const JmeEventResult &jme_result, JmeVariation variation) {
+  if (!select_muons(event, variation)) {
+    return false;
+  }
   apply_jme_and_select_jets(event, jme_result, variation);
   const auto &muons = event.get<std::vector<ObjectView>>("muons");
   std::vector<ObjectView> probe_jets;

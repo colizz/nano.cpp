@@ -113,6 +113,7 @@ void HeavyFlavBaseProducer::begin_file() {
   out_.branch("genWeight", 1.0f);
   if (config_.include_lhe_weights) {
     out_.branch("LHEScaleWeight", std::vector<float>{});
+    out_.branch("LHEPdfWeight", std::vector<float>{});
   }
   pu_weight_producer_->begin_file(out_);
   nlo_ew_weight_producer_->begin_file(out_);
@@ -371,9 +372,13 @@ void HeavyFlavBaseProducer::fill_base_event_info(Event &event, JmeVariation vari
   out_.fill("jetVetoFlag", event.has("jetVetoFlag") ? event.get<std::int32_t>("jetVetoFlag") : std::int32_t{-99});
   out_.fill("genWeight", event.is_mc() ? event.scalar<float>("genWeight") : 1.0f);
   if (config_.include_lhe_weights) {
-    out_.fill("LHEScaleWeight", variation == JmeVariation::Nominal && event.has_physical_branch("LHEScaleWeight")
+    const auto nominal = variation == JmeVariation::Nominal;
+    out_.fill("LHEScaleWeight", nominal && event.has_physical_branch("LHEScaleWeight")
                                     ? event.vector<float>("LHEScaleWeight")
                                     : std::vector<float>{});
+    out_.fill("LHEPdfWeight", nominal && event.has_physical_branch("LHEPdfWeight")
+                                  ? event.vector<float>("LHEPdfWeight")
+                                  : std::vector<float>{});
   }
   pu_weight_producer_->fill(event, out_);
   nlo_ew_weight_producer_->fill(event, out_);

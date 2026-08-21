@@ -49,6 +49,17 @@ void RootOutputFile::book_events(const OutputModel &model, std::string_view tree
   }
 }
 
+void RootOutputFile::set_branch_title(std::string_view branch_name, std::string_view title) {
+  if (!events_tree_) {
+    throw std::runtime_error("Events tree has not been booked");
+  }
+  auto *branch = events_tree_->GetBranch(std::string(branch_name).c_str());
+  if (!branch) {
+    throw std::runtime_error("Cannot set title for missing output branch: " + std::string(branch_name));
+  }
+  branch->SetTitle(std::string(title).c_str());
+}
+
 void RootOutputFile::fill_event(const OutputModel &model) {
   if (!events_tree_) {
     throw std::runtime_error("Events tree has not been booked");

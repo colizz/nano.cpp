@@ -1,4 +1,5 @@
 #include "runtime_common.h"
+#include "nano/helpers/JmeVariation.h"
 
 #include <cctype>
 #include <filesystem>
@@ -72,7 +73,7 @@ CliOptions parse_args(int argc, char **argv) {
     }
   }
   if (opts.input_yaml.empty() || opts.job_dir.empty() || opts.output_dir.empty() || opts.config_file.empty()) {
-    throw std::runtime_error("Usage: nano_make_condor --input-yaml <samples.yaml> --job-dir <condor-dir> --output-dir <dir> --config <card.yaml> [--nfiles-per-job 1] [--variations nominal,jes_up,...]. If omitted, --variations defaults to nominal.");
+    throw std::runtime_error("Usage: nano_make_condor --input-yaml <samples.yaml> --job-dir <condor-dir> --output-dir <dir> --config <card.yaml> [--nfiles-per-job 1] [--variations nominal,jes_up,...,muon_smear_down]. If omitted, --variations defaults to nominal.");
   }
   return opts;
 }
@@ -86,7 +87,18 @@ void validate_data_variations(const CliOptions &cli) {
   if (!cli.run_data || variations == "nominal") {
     return;
   }
-  throw std::runtime_error("--run-data does not support JME variations. If --variations is used with --run-data, it must be the single value 'nominal'; otherwise omit --variations.");
+  throw std::runtime_error("--run-data does not support systematic variations. Use only 'nominal'.");
+}
+
+void validate_variation_scope(const CliOptions &cli) {
+  if (cli.channel == "zmm") {
+    return;
+  }
+  for (const auto variation : nano::parse_jme_variation_list(normalized_variations_arg(cli))) {
+    if (nano::is_muon_variation(variation)) {
+      throw std::runtime_error("Muon scale/smear variations are supported only for the zmm MC channel");
+    }
+  }
 }
 
 std::string write_merged_config(const fs::path &path, const YAML::Node &settings) {
@@ -226,6 +238,7 @@ int main(int argc, char **argv) {
   try {
     const auto cli = parse_args(argc, argv);
     validate_data_variations(cli);
+    validate_variation_scope(cli);
     auto settings = nano::runtime::load_config_with_extends(cli.config_file);
     for (const auto &[key, value] : cli.overrides) {
       nano::runtime::apply_override(settings, key, value);

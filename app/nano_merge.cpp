@@ -27,7 +27,9 @@ constexpr std::array kAllowedVariations = {
     std::string_view{"nominal"},  std::string_view{"jes_up"},
     std::string_view{"jes_down"}, std::string_view{"jer_up"},
     std::string_view{"jer_down"}, std::string_view{"met_up"},
-    std::string_view{"met_down"},
+    std::string_view{"met_down"}, std::string_view{"muon_scale_up"},
+    std::string_view{"muon_scale_down"}, std::string_view{"muon_smear_up"},
+    std::string_view{"muon_smear_down"},
 };
 
 constexpr std::size_t kHaddChunkSize = 200;

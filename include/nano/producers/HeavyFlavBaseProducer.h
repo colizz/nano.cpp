@@ -62,10 +62,8 @@ struct NloEWConfig {
   std::string payload_dir;
   std::string w_file;
   std::string z_file;
-  std::string w_histogram;
-  std::string z_histogram;
-  std::vector<std::string> w_uncertainty_histograms;
-  std::vector<std::string> z_uncertainty_histograms;
+  std::string w_correction;
+  std::string z_correction;
 };
 
 struct BTagConfig {
@@ -106,6 +104,8 @@ struct ProducerConfig {
   std::string pu_payload_dir;
   std::unordered_map<std::string, PuEraConfig> pu_eras;
   std::string muon_payload_dir;
+  std::string muon_smearing_file;
+  std::string muon_smearing_tool = "stdflat";
   std::unordered_map<std::string, MuonEraConfig> muon_eras;
   NloEWConfig nlo_ew;
   bool jet_veto_map_enabled = false;

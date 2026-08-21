@@ -10,6 +10,7 @@
 #include "runtime_common.h"
 
 #include <algorithm>
+#include <array>
 #include <cerrno>
 #include <cstdlib>
 #include <filesystem>
@@ -23,6 +24,8 @@
 namespace fs = std::filesystem;
 
 namespace {
+
+constexpr std::array<std::string_view, 2> kLheWeightBranches = {"LHEScaleWeight", "LHEPdfWeight"};
 
 bool parse_double_strict(const std::string &text, double &value) {
   char *end = nullptr;
@@ -115,7 +118,7 @@ CliOptions parse_args(int argc, char **argv) {
   }
 
   if (opts.input_files.empty() || opts.output_file.empty() || opts.config_file.empty()) {
-    throw std::runtime_error("Usage: nano_run --input-files <files> --output-file <out.root> --config <card.yaml> [--channel muon|minimal|qcd|zbb|zmm] [--num-events -1] [--run-data] [--variations nominal,jes_up,...] [--set key=value]. If omitted, --variations defaults to nominal.");
+    throw std::runtime_error("Usage: nano_run --input-files <files> --output-file <out.root> --config <card.yaml> [--channel muon|minimal|qcd|zbb|zmm] [--num-events -1] [--run-data] [--variations nominal,jes_up,...,muon_smear_down] [--set key=value]. If omitted, --variations defaults to nominal.");
   }
   return opts;
 }
@@ -129,7 +132,18 @@ void validate_data_variations(const CliOptions &cli) {
   if (!cli.run_data || variations == "nominal") {
     return;
   }
-  throw std::runtime_error("--run-data does not support JME variations. If --variations is used with --run-data, it must be the single value 'nominal'; otherwise omit --variations.");
+  throw std::runtime_error("--run-data does not support systematic variations. Use only 'nominal'.");
+}
+
+void validate_variation_scope(const CliOptions &cli, const std::vector<nano::JmeVariation> &variations) {
+  if (cli.channel == "zmm") {
+    return;
+  }
+  for (const auto variation : variations) {
+    if (nano::is_muon_variation(variation)) {
+      throw std::runtime_error("Muon scale/smear variations are supported only for the zmm MC channel");
+    }
+  }
 }
 
 nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &channel) {
@@ -215,18 +229,20 @@ nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &
   // read_branches safety checks:
   // - Runtime cards should explicitly list every physical NanoAOD branch the
   //   channel reads.
-  // - required_triggers, stored_tagger_names, and optional LHEScaleWeight can
-  //   imply extra physical branches; auto-add them for backward compatibility,
-  //   but warn so the card can be made explicit.
-  // - If LHEScaleWeight is listed while output.include_lhe_weights is disabled,
+  // - required_triggers, stored_tagger_names, and optional LHE weight vectors can
+  //   imply extra physical branches; auto-add them for backward compatibility.
+  // - If an LHE weight vector is listed while output.include_lhe_weights is disabled,
   //   remove it so a stale read_branches entry does not silently read an unused
   //   large vector branch.
   if (!config.include_lhe_weights) {
-    const auto old_size = config.read_branches.size();
-    config.read_branches.erase(std::remove(config.read_branches.begin(), config.read_branches.end(), "LHEScaleWeight"),
-                               config.read_branches.end());
-    if (config.read_branches.size() != old_size) {
-      std::cerr << "Warning: removing LHEScaleWeight from read_branches because output.include_lhe_weights is false.\n";
+    for (const auto branch_name : kLheWeightBranches) {
+      const auto old_size = config.read_branches.size();
+      config.read_branches.erase(std::remove(config.read_branches.begin(), config.read_branches.end(), branch_name),
+                                 config.read_branches.end());
+      if (config.read_branches.size() != old_size) {
+        std::cerr << "Warning: removing " << branch_name
+                  << " from read_branches because output.include_lhe_weights is false.\n";
+      }
     }
   }
   if (!settings["stored_tagger_names"]) {
@@ -250,10 +266,12 @@ nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &
       config.read_branches.push_back(branch_name);
     }
   }
-  if (config.include_lhe_weights && seen.insert("LHEScaleWeight").second) {
-    std::cerr << "Warning: adding missing branch LHEScaleWeight to read_branches because output.include_lhe_weights is true. "
-                 "Please list it explicitly in read_branches.\n";
-    config.read_branches.push_back("LHEScaleWeight");
+  if (config.include_lhe_weights) {
+    for (const auto branch_name : kLheWeightBranches) {
+      if (seen.insert(std::string(branch_name)).second) {
+        config.read_branches.emplace_back(branch_name);
+      }
+    }
   }
   for (const auto &branch_name : config.read_branches) {
     if (config.nano_branch_types.count(branch_name) != 0U) {
@@ -323,6 +341,8 @@ nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &
   if (settings["muon_corrections"]) {
     const auto node = settings["muon_corrections"];
     config.muon_payload_dir = node["payload_dir"].as<std::string>();
+    config.muon_smearing_file = node["smearing_file"].as<std::string>();
+    config.muon_smearing_tool = node["smearing_tool"] ? node["smearing_tool"].as<std::string>() : "stdflat";
     for (const auto &item : node["campaigns"]) {
       config.muon_eras[item.first.as<std::string>()] = {
           item.second["payload_subdir"].as<std::string>(),
@@ -334,21 +354,12 @@ nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &
   }
   if (settings["nlo_ew"]) {
     const auto node = settings["nlo_ew"];
-    const auto uncertainty_histograms = [](const YAML::Node &histograms) {
-      std::vector<std::string> names;
-      for (const auto &histogram : histograms) {
-        names.push_back(histogram.as<std::string>());
-      }
-      return names;
-    };
     config.nlo_ew = {
         node["payload_dir"].as<std::string>(),
         node["w_file"].as<std::string>(),
         node["z_file"].as<std::string>(),
-        node["w_histogram"].as<std::string>(),
-        node["z_histogram"].as<std::string>(),
-        uncertainty_histograms(node["w_uncertainty_histograms"]),
-        uncertainty_histograms(node["z_uncertainty_histograms"]),
+        node["w_correction"].as<std::string>(),
+        node["z_correction"].as<std::string>(),
     };
   }
   if (settings["jet_veto_map"]) {
@@ -415,8 +426,23 @@ std::vector<std::string> process_one_file_variations(const std::string &input_fi
   if (!tree) {
     throw std::runtime_error("Missing tree " + cli.tree_name + " in " + input_file);
   }
+  if (!tree->GetBranch("genWeight")) {
+    for (const auto variation : variations) {
+      if (nano::is_muon_variation(variation)) {
+        throw std::runtime_error("Muon scale/smear variations are supported only for the zmm MC channel");
+      }
+    }
+  }
 
   const auto config = make_config(settings, cli.channel);
+  if (config.include_lhe_weights && tree->GetBranch("genWeight")) {
+    for (const auto branch_name : kLheWeightBranches) {
+      if (!tree->GetBranch(std::string(branch_name).c_str())) {
+        std::cerr << "Warning: MC input is missing optional " << branch_name
+                  << "; the output vector will be empty.\n";
+      }
+    }
+  }
   const auto lumi_mask = cli.run_data ? std::make_unique<nano::runtime::LumiMask>(nano::runtime::LumiMask::from_file(data_lumi_mask_path(settings, config)))
                                       : nullptr;
   auto producer_base = make_producer(config);
@@ -439,6 +465,14 @@ std::vector<std::string> process_one_file_variations(const std::string &input_fi
     }
     auto output = std::make_unique<nano::RootOutputFile>(path);
     output->book_events(producer->output());
+    if (config.include_lhe_weights) {
+      for (const auto branch_name : kLheWeightBranches) {
+        const auto *input_branch = tree->GetBranch(std::string(branch_name).c_str());
+        if (input_branch) {
+          output->set_branch_title(branch_name, input_branch->GetTitle());
+        }
+      }
+    }
     outputs.push_back({variation, std::move(path), std::move(output), 0U});
   }
 
@@ -490,6 +524,7 @@ int main(int argc, char **argv) {
     }
 
     const auto variations = nano::parse_jme_variation_list(normalized_variations_arg(cli));
+    validate_variation_scope(cli, variations);
     if (inputs.size() == 1U) {
       process_one_file_variations(inputs.front(), cli.output_file, cli, settings, variations);
       return 0;

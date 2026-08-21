@@ -4,10 +4,12 @@
 #include "nano/core/OutputModel.h"
 #include "nano/producers/HeavyFlavBaseProducer.h"
 
-#include <array>
 #include <memory>
+#include <string>
 
-class TH1;
+namespace correction {
+class CorrectionSet;
+}
 
 namespace nano {
 
@@ -23,8 +25,8 @@ private:
   enum class Boson { None, W, Z };
 
   Boson boson_ = Boson::None;
-  std::unique_ptr<TH1> histogram_;
-  std::array<std::unique_ptr<TH1>, 3> uncertainty_histograms_;
+  std::shared_ptr<correction::CorrectionSet> corrections_;
+  std::string correction_key_;
 };
 
 }  // namespace nano

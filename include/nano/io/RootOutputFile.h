@@ -24,6 +24,7 @@ public:
   ~RootOutputFile();
 
   void book_events(const OutputModel &model, std::string_view tree_name = "Events");
+  void set_branch_title(std::string_view branch_name, std::string_view title);
   void fill_event(const OutputModel &model);
   void write();
 

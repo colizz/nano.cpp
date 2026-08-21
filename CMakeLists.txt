@@ -54,3 +54,25 @@ add_test(
   COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/muon_validation_test.py --source-dir ${CMAKE_SOURCE_DIR} --build-dir ${CMAKE_BINARY_DIR} --group muon --max-input-events 5000
 )
 set_tests_properties(muon_validation PROPERTIES TIMEOUT 7200 LABELS "muon;reference;systematics")
+
+add_executable(muon_external_equivalence tests/muon_external_equivalence.cpp)
+target_link_libraries(muon_external_equivalence PRIVATE CMSJMECalculators)
+add_test(
+  NAME muon_external_equivalence
+  COMMAND muon_external_equivalence
+    /cvmfs/cms-griddata.cern.ch/cat/metadata/MUO/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/muon_scalesmearing.json.gz
+    ${CMAKE_SOURCE_DIR}/data/muon-smearing/stdflat.json.gz
+)
+set_tests_properties(muon_external_equivalence PROPERTIES LABELS "muon;unit;systematics")
+
+add_test(
+  NAME vjets_ewk_json
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/vjets_ewk_json_test.py --source-dir ${CMAKE_SOURCE_DIR}
+)
+set_tests_properties(vjets_ewk_json PROPERTIES LABELS "vjets;correctionlib;reference")
+
+add_test(
+  NAME condor_sample_name
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/condor_sample_name_test.py --source-dir ${CMAKE_SOURCE_DIR}
+)
+set_tests_properties(condor_sample_name PROPERTIES LABELS "condor;runtime")
