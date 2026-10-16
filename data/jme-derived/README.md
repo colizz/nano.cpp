@@ -1,32 +1,29 @@
 # Derived JME payloads
 
-This directory stores correctionlib JSON payloads derived from legacy CMS JetMET JEC/JER text tarballs. They are used for Run 2 AK4PFPuppi subjets because the official NanoAODv9 JME correctionlib payloads provide AK4PFchs jets and AK8PFPuppi fatjets, but not the AK4PFPuppi subjet payloads needed here.
+These correctionlib payloads provide AK4PFPuppi subjet JEC/JER for Run 2 NanoAODv9. The official NanoAODv9 JSONs do not include this jet type.
 
-Payloads are stored under date-stamped directories. The current version is `2026-06-25`; there is intentionally no `latest` symlink or `latest` subdirectory.
+## Current version: 2026-10-17
 
-## 2026-06-25
+The four current payloads are based on the previous `2026-06-25` version. They retain the same era-specific CMS JEC and JER tags listed below.
 
-The `2026-06-25` payloads were derived with `tools/derive_jec_from_txt.py` from the official JEC/JER tarballs in `cms-jet/JECDatabase` and `cms-jet/JRDatabase`.
+Changes from `2026-06-25`:
 
-Each `jet_jerc.json.gz` contains only the narrow AK4PFPuppi subset needed by the framework:
+- Rebuilt the JEC entries from the corresponding CMS `JECDatabase` text tarballs. DATA now applies `L2L3Residual` after `L2Relative` and `L3Absolute`.
+- Added unity `L1FastJet` entries to MC and DATA, plus a unity MC `L2L3Residual` entry. These give AK4PFPuppi the interface expected by CMSJMECalculators without changing the MC JEC value.
+- Set compound inputs to `JetA`, `JetEta`, `JetPt`, `Rho`; DATA compounds with run-dependent corrections take `run` last. Such corrections reject runs outside their configured range.
+- Copied the `PtResolution`, `ScaleFactor`, and `SFUncertainty` JER entries unchanged from `2026-06-25`.
 
-- MC JEC: `L2Relative`, `L3Absolute`, `Total`
-- MC JER: `PtResolution`, `ScaleFactor`, `SFUncertainty`
-- DATA JEC: `L2Relative`, `L3Absolute`, `Total`
-- MC compound correction: `*_MC_L1L2L3Res_AK4PFPuppi`
-- DATA compound correction: `*_DATA_L1L2L3Res_AK4PFPuppi`
+Validation: all four JSONs load in correctionlib; sampled MC compound values and JER entries match the previous version. The 2018 corrections match the audited payload in `boohft-calib/study/261016_nanocpp_nanohrt_jer_audit/nano.cpp`. Muon validation passes.
 
-The payloads do not include the full official list of JES uncertainty sources such as `AbsoluteStat`, `FlavorQCD`, `PileUpPtBB`, or `Regrouped_*`; only `Total` is included.
+## Previous version: 2026-06-25
 
-### Per-era tags
+This version was derived from CMS `JECDatabase` and `JRDatabase` text tarballs with `tools/derive_jec_from_txt.py`. It remains available under each era's `2026-06-25` directory. Only the `Total` JES uncertainty source is included.
 
-| Directory | MC JEC tag | DATA JEC tag | MC JER tag |
+| Era directory | MC JEC tag | DATA JEC tag | MC JER tag |
 | --- | --- | --- | --- |
-| `Run2-2016preVFP-UL-NanoAODv9/2026-06-25` | `Summer19UL16APV_V7_MC` | `Summer19UL16APV_V7_DATA` | `Summer20UL16APV_JRV5_MC` |
-| `Run2-2016postVFP-UL-NanoAODv9/2026-06-25` | `Summer19UL16_V7_MC` | `Summer19UL16_V7_DATA` | `Summer20UL16_JRV5_MC` |
-| `Run2-2017-UL-NanoAODv9/2026-06-25` | `Summer19UL17_V5_MC` | `Summer19UL17_V5_DATA` | `Summer19UL17_JRV4_MC` |
-| `Run2-2018-UL-NanoAODv9/2026-06-25` | `Summer19UL18_V5_MC` | `Summer19UL18_V5_DATA` | `Summer19UL18_JRV3_MC` |
+| `Run2-2016preVFP-UL-NanoAODv9` | `Summer19UL16APV_V7_MC` | `Summer19UL16APV_V7_DATA` | `Summer20UL16APV_JRV5_MC` |
+| `Run2-2016postVFP-UL-NanoAODv9` | `Summer19UL16_V7_MC` | `Summer19UL16_V7_DATA` | `Summer20UL16_JRV5_MC` |
+| `Run2-2017-UL-NanoAODv9` | `Summer19UL17_V5_MC` | `Summer19UL17_V5_DATA` | `Summer19UL17_JRV4_MC` |
+| `Run2-2018-UL-NanoAODv9` | `Summer19UL18_V5_MC` | `Summer19UL18_V5_DATA` | `Summer19UL18_JRV3_MC` |
 
-### Validation
-
-The derivation script validates AK4PFchs against official CVMFS JSONs because AK4PFchs is available in both the legacy text tarballs and official correctionlib payloads. The 2026-06-25 parser changes were checked with `validate-ak4chs` for all four Run 2 NanoAODv9 eras, including JEC compound, JER `PtResolution`, JER `ScaleFactor`, and JER `SFUncertainty`.
+Each version lives at `<era directory>/<version>/jet_jerc.json.gz`. `configs/base.yaml` selects `2026-10-17` for all four eras.

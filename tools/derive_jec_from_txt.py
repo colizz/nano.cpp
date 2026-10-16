@@ -76,7 +76,12 @@ Derive the 2018 AK4PFPuppi payload used for local subjet corrections:
     --algo AK4PFPuppi \
     --jer-tar /tmp/Summer19UL18_JRV3_MC.tar.gz \
     --jer-tag Summer19UL18_JRV3_MC \
-    --output data/jme-derived/Run2-2018-UL-NanoAODv9/2026-06-25/jet_jerc.json.gz
+    --output data/jme-derived/Run2-2018-UL-NanoAODv9/2026-10-17/jet_jerc.json.gz
+
+Data JEC includes L2L3Residual by default, independently of the MC levels.
+Use --jec-data-levels to explicitly override the Data chain.
+AK4PFPuppi compounds expose AK8-like inputs and unity L1FastJet (plus unity
+MC residual); run-binned Data uses run last and rejects out-of-range runs.
 
 The AK4PFPuppi command above writes MC JEC, JER, DATA JEC, and both MC/DATA
 compound corrections in one output JSON.
@@ -106,7 +111,7 @@ Validate and derive the other Run-2 NanoAODv9 eras in the same way:
     --algo AK4PFPuppi \
     --jer-tar /tmp/Summer19UL17_JRV4_MC.tar.gz \
     --jer-tag Summer19UL17_JRV4_MC \
-    --output data/jme-derived/Run2-2017-UL-NanoAODv9/2026-06-25/jet_jerc.json.gz
+    --output data/jme-derived/Run2-2017-UL-NanoAODv9/2026-10-17/jet_jerc.json.gz
 
   python tools/derive_jec_from_txt.py validate-ak4chs \
     --jec-tar /tmp/Summer19UL16_V7_MC.tar.gz \
@@ -131,7 +136,7 @@ Validate and derive the other Run-2 NanoAODv9 eras in the same way:
     --algo AK4PFPuppi \
     --jer-tar /tmp/Summer20UL16_JRV5_MC.tar.gz \
     --jer-tag Summer20UL16_JRV5_MC \
-    --output data/jme-derived/Run2-2016postVFP-UL-NanoAODv9/2026-06-25/jet_jerc.json.gz
+    --output data/jme-derived/Run2-2016postVFP-UL-NanoAODv9/2026-10-17/jet_jerc.json.gz
 
   python tools/derive_jec_from_txt.py validate-ak4chs \
     --jec-tar /tmp/Summer19UL16APV_V7_MC.tar.gz \
@@ -156,7 +161,7 @@ Validate and derive the other Run-2 NanoAODv9 eras in the same way:
     --algo AK4PFPuppi \
     --jer-tar /tmp/Summer20UL16APV_JRV5_MC.tar.gz \
     --jer-tag Summer20UL16APV_JRV5_MC \
-    --output data/jme-derived/Run2-2016preVFP-UL-NanoAODv9/2026-06-25/jet_jerc.json.gz
+    --output data/jme-derived/Run2-2016preVFP-UL-NanoAODv9/2026-10-17/jet_jerc.json.gz
 """
 
 from __future__ import annotations
@@ -486,13 +491,41 @@ def make_compound(tag: str, algo: str, levels: list[str], inputs: list[str]) -> 
     return {
         "name": f"{tag}_L1L2L3Res_{algo}",
         "description": f"compound correction for {algo} derived from legacy txt payloads",
-        "inputs": correction_inputs(inputs),
+        "inputs": [variable(name) for name in inputs],
         "output": {"name": "correction", "type": "real"},
         "inputs_update": ["JetPt"],
         "input_op": "*",
         "output_op": "*",
         "stack": [f"{tag}_{level}_{algo}" for level in levels],
     }
+
+
+def add_puppi_unity_levels(corrections: list[dict[str, Any]], tag: str, algo: str,
+                           levels: list[str]) -> list[str]:
+    """Expose AK8-like Puppi JEC levels without changing existing corrections."""
+    levels = list(levels)
+    if algo != "AK4PFPuppi":
+        return levels
+    requested = [("L1FastJet", ["JetA", "JetEta", "JetPt", "Rho"],
+                  ["Rho", "JetPt", "JetA"], [0., 200., 10., 3000., 0., 10.])]
+    if tag.endswith("_MC"):
+        requested.append(("L2L3Residual", ["JetEta", "JetPt"], ["JetPt"], [4., 5000.]))
+    for level, inputs, variables, parameters in requested:
+        name = f"{tag}_{level}_{algo}"
+        if name not in {c["name"] for c in corrections}:
+            corrections.append({
+                "name": name, "description": f"Unity {level} for {algo}; AK8 Puppi interface placeholder",
+                "version": 3, "inputs": correction_inputs(inputs),
+                "output": {"name": "correction", "type": "real"},
+                "generic_formulas": [{"nodetype": "formula", "expression": "[0]*max(min(x,[3]),[2])+[1]",
+                                      "parser": "TFormula", "variables": ["JetPt"]}],
+                "data": {"nodetype": "binning", "input": "JetEta", "edges": [-5.191, 5.191],
+                         "content": [{"nodetype": "formula", "expression": "1", "parser": "TFormula",
+                                      "variables": variables, "parameters": parameters}], "flow": 1.0},
+            })
+        if level not in levels:
+            levels.insert(0, level) if level == "L1FastJet" else levels.append(level)
+    return levels
 
 
 def wrap_run_binning(corrections: list[dict[str, Any]], run_edges: list[float], name: str, description: str) -> dict[str, Any]:
@@ -513,7 +546,7 @@ def wrap_run_binning(corrections: list[dict[str, Any]], run_edges: list[float], 
             "input": "run",
             "edges": run_edges,
             "content": [correction["data"] for correction in corrections],
-            "flow": "clamp",
+            "flow": "error",
         },
     }
 
@@ -549,9 +582,10 @@ def build_data_payload(
     else:
         run_binned = True
         corrections.append(wrap_run_binning(parsed_unc, run_edges, f"{tag}_Total_{algo}", f"Total JES uncertainty for {algo}"))
-    inputs = ["JetA", "JetEta", "JetPt", "Rho"] if jec_levels[0] == "L1FastJet" else ["JetEta", "JetPt"]
+    jec_levels = add_puppi_unity_levels(corrections, tag, algo, jec_levels)
+    inputs = ["JetA", "JetEta", "JetPt", "Rho"]
     if run_binned:
-        inputs = ["run"] + inputs
+        inputs = inputs + ["run"] if algo == "AK4PFPuppi" else ["run"] + inputs
     compounds = [make_compound(tag, algo, jec_levels, inputs)]
     return {"schema_version": 2, "corrections": corrections, "compound_corrections": compounds}
 
@@ -572,6 +606,7 @@ def build_payload(
         corrections.append(parse_formula_table(read_member(jec_tar, member), f"{tag}_{level}_{algo}", f"{level} for {algo}"))
     unc_member = f"{member_tag}_Uncertainty_{algo}.txt"
     corrections.append(parse_uncertainty_table(read_member(jec_tar, unc_member), f"{tag}_Total_{algo}", f"Total JES uncertainty for {algo}"))
+    jec_levels = add_puppi_unity_levels(corrections, tag, algo, jec_levels)
     compounds = [make_compound(tag, algo, jec_levels, ["JetA", "JetEta", "JetPt", "Rho"] if jec_levels[0] == "L1FastJet" else ["JetEta", "JetPt"])]
     if jer_tar and jer_tag:
         corrections.append(
@@ -633,12 +668,17 @@ def add_data_payload_from_args(payload: dict[str, Any], args: argparse.Namespace
         raise ValueError("--jec-data-tag and --jec-data-tars must be provided together")
     data_member_tags = split_csv(args.jec_data_member_tags)
     data_run_edges = split_csv_floats(args.jec_data_run_edges)
+    # Data requires the residual level; keep the MC chain independent.
+    requested_data_levels = getattr(args, "jec_data_levels", None)
+    data_levels = requested_data_levels.split(",") if requested_data_levels else list(jec_levels)
+    if requested_data_levels is None and "L2L3Residual" not in data_levels:
+        data_levels.append("L2L3Residual")
     data_payload = build_data_payload(
         data_tars,
         data_member_tags,
         args.jec_data_tag,
         algo,
-        jec_levels,
+        data_levels,
         data_run_edges,
     )
     payload["corrections"].extend(data_payload["corrections"])
@@ -751,6 +791,10 @@ def main() -> None:
     p_derive.add_argument("--jec-data-run-edges")
     p_derive.add_argument("--algo", required=True)
     p_derive.add_argument("--jec-levels", default="L2Relative,L3Absolute")
+    p_derive.add_argument(
+        "--jec-data-levels",
+        help="Data correction levels; default: --jec-levels plus L2L3Residual",
+    )
     p_derive.add_argument("--jer-tar", type=Path)
     p_derive.add_argument("--jer-tag")
     p_derive.add_argument("--output", type=Path, required=True)

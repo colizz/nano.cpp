@@ -87,7 +87,7 @@ jec:
       subjet:
         # Derived from legacy JME txt tarballs because official Run2 NanoAODv9
         # correctionlib payloads do not provide AK4PFPuppi subjet JEC.
-        payload_subdir: data/jme-derived/Run2-2016preVFP-UL-NanoAODv9/2026-06-25
+        payload_subdir: data/jme-derived/Run2-2016preVFP-UL-NanoAODv9/2026-10-17
         jerc_file: jet_jerc.json.gz
         algo: AK4PFPuppi
         jec_tag_mc: inherit
@@ -112,7 +112,7 @@ jec:
       subjet:
         # Derived from legacy JME txt tarballs because official Run2 NanoAODv9
         # correctionlib payloads do not provide AK4PFPuppi subjet JEC.
-        payload_subdir: data/jme-derived/Run2-2016postVFP-UL-NanoAODv9/2026-06-25
+        payload_subdir: data/jme-derived/Run2-2016postVFP-UL-NanoAODv9/2026-10-17
         jerc_file: jet_jerc.json.gz
         algo: AK4PFPuppi
         jec_tag_mc: inherit
@@ -137,7 +137,7 @@ jec:
       subjet:
         # Derived from legacy JME txt tarballs because official Run2 NanoAODv9
         # correctionlib payloads do not provide AK4PFPuppi subjet JEC.
-        payload_subdir: data/jme-derived/Run2-2017-UL-NanoAODv9/2026-06-25
+        payload_subdir: data/jme-derived/Run2-2017-UL-NanoAODv9/2026-10-17
         jerc_file: jet_jerc.json.gz
         algo: AK4PFPuppi
         jec_tag_mc: inherit
@@ -162,7 +162,7 @@ jec:
       subjet:
         # Derived from legacy JME txt tarballs because official Run2 NanoAODv9
         # correctionlib payloads do not provide AK4PFPuppi subjet JEC.
-        payload_subdir: data/jme-derived/Run2-2018-UL-NanoAODv9/2026-06-25
+        payload_subdir: data/jme-derived/Run2-2018-UL-NanoAODv9/2026-10-17
         jerc_file: jet_jerc.json.gz
         algo: AK4PFPuppi
         jec_tag_mc: inherit

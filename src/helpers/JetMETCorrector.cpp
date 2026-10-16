@@ -836,8 +836,17 @@ void JetMETCorrector::apply_event(Event &event, const JmeEventResult &result, Jm
 
   apply_nominal_jets(event, "SubJet", result.subjets.pt(subjet_var), result.subjets.mass(subjet_var));
 
-  event.set("met_pt", static_cast<float>(met_result.pt(met_var)));
-  event.set("met_phi", static_cast<float>(met_result.phi(met_var)));
+  double met_px = met_result.px(met_var);
+  double met_py = met_result.py(met_var);
+  if (use_smeared_met && bundle.met_smeared) {
+    const auto smeared_nominal = variation_index(bundle.met_smeared->available(), JmeVariation::Nominal, result.is_mc);
+    const auto nominal = variation_index(bundle.met->available(), JmeVariation::Nominal, result.is_mc);
+    // Keep the unsmeared nominal MET baseline and apply only the JER variation shift.
+    met_px += result.met.px(nominal) - result.met_smeared.px(smeared_nominal);
+    met_py += result.met.py(nominal) - result.met_smeared.py(smeared_nominal);
+  }
+  event.set("met_pt", static_cast<float>(std::hypot(met_px, met_py)));
+  event.set("met_phi", static_cast<float>(std::atan2(met_py, met_px)));
 }
 
 void JetMETCorrector::correct_event(Event &event) const {
