@@ -179,6 +179,17 @@ RVecI int_rvec(Event &event, std::string_view branch_name) {
   throw std::runtime_error("Branch is not an integer vector: " + std::string(branch_name));
 }
 
+RVecF float_rvec(Event &event, std::string_view branch_name) {
+  const auto *info = event.schema().find(branch_name);
+  if (!info) {
+    return RVecF{};
+  }
+  if (info->type == BranchType::kVecFloat) {
+    return to_rvec(event.vector<float>(branch_name));
+  }
+  throw std::runtime_error("Branch is not a float vector: " + std::string(branch_name));
+}
+
 float get_scalar_or(Event &event, std::string_view name, float fallback) {
   return event.has_physical_branch(name) ? event.scalar<float>(name) : fallback;
 }
@@ -634,11 +645,14 @@ JmeEventResult JetMETCorrector::compute_event(Event &event) const {
   const auto lowpt_phi = to_rvec(event.vector<float>("CorrT1METJet_phi"));
   const auto lowpt_area = to_rvec(event.vector<float>("CorrT1METJet_area"));
   const auto lowpt_muon = to_rvec(event.vector<float>("CorrT1METJet_muonSubtrFactor"));
+  const auto lowpt_muon_dphi = float_rvec(event, "CorrT1METJet_muonSubtrDeltaPhi");
+  const auto lowpt_emef = float_rvec(event, "CorrT1METJet_EmEF");
   const auto lowpt_zero = zeros_f(lowpt_rawpt.size());
   const auto [met_dx, met_dy] = met_unclustered_up_delta(event, config_.nano_version);
 
   const auto raw_met_prefix = config_.nano_version == "v9" ? "RawMET" : "RawPuppiMET";
   const auto jet_muon = to_rvec(event.vector<float>("Jet_muonSubtrFactor"));
+  const auto jet_muon_dphi = float_rvec(event, "Jet_muonSubtrDeltaPhi");
   const auto jet_neemef = to_rvec(event.vector<float>("Jet_neEmEF"));
   const auto jet_chemef = to_rvec(event.vector<float>("Jet_chEmEF"));
   const auto raw_met_phi = event.scalar<float>(std::string(raw_met_prefix) + "_phi");
@@ -652,6 +666,7 @@ JmeEventResult JetMETCorrector::compute_event(Event &event) const {
     debug_print_vector(std::cerr, "jet_raw", jet_raw);
     debug_print_vector(std::cerr, "jet_area", jet_area);
     debug_print_vector(std::cerr, "jet_muon", jet_muon);
+    debug_print_vector(std::cerr, "jet_muon_dphi", jet_muon_dphi);
     debug_print_vector(std::cerr, "jet_neEmEF", jet_neemef);
     debug_print_vector(std::cerr, "jet_chEmEF", jet_chemef);
     debug_print_vector(std::cerr, "jet_jetid", jet_jetid);
@@ -671,14 +686,16 @@ JmeEventResult JetMETCorrector::compute_event(Event &event) const {
     debug_print_vector(std::cerr, "lowpt_phi", lowpt_phi);
     debug_print_vector(std::cerr, "lowpt_area", lowpt_area);
     debug_print_vector(std::cerr, "lowpt_muon", lowpt_muon);
+    debug_print_vector(std::cerr, "lowpt_muon_dphi", lowpt_muon_dphi);
+    debug_print_vector(std::cerr, "lowpt_emef", lowpt_emef);
     debug_print_vector(std::cerr, "lowpt_zero", lowpt_zero);
     debug_print_scalar(std::cerr, "met_dx", met_dx);
     debug_print_scalar(std::cerr, "met_dy", met_dy);
   }
   result.met = bundle.met->produce(
-      jet_pt, jet_eta, jet_phi, jet_mass, jet_raw, jet_area, jet_muon, jet_neemef, jet_chemef, jet_jetid, rho, jet_genidx,
+      jet_pt, jet_eta, jet_phi, jet_mass, jet_raw, jet_area, jet_muon, jet_muon_dphi, jet_neemef, jet_chemef, jet_jetid, rho, jet_genidx,
       jet_parton, jet_seed, run, gen_pt, gen_eta, gen_phi, gen_mass, raw_met_phi, raw_met_pt, lowpt_rawpt, lowpt_eta, lowpt_phi,
-      lowpt_area, lowpt_muon, lowpt_zero, lowpt_zero, met_dx, met_dy, static_cast<unsigned char>(0));
+      lowpt_area, lowpt_muon, lowpt_muon_dphi, lowpt_emef, lowpt_zero, met_dx, met_dy, static_cast<unsigned char>(0));
   if (debug_bundle_io) {
     debug_print_met_output(std::cerr, "bundle.met", bundle.met->available(), result.met);
   }
@@ -692,6 +709,7 @@ JmeEventResult JetMETCorrector::compute_event(Event &event) const {
       debug_print_vector(std::cerr, "jet_raw", jet_raw);
       debug_print_vector(std::cerr, "jet_area", jet_area);
       debug_print_vector(std::cerr, "jet_muon", jet_muon);
+      debug_print_vector(std::cerr, "jet_muon_dphi", jet_muon_dphi);
       debug_print_vector(std::cerr, "jet_neEmEF", jet_neemef);
       debug_print_vector(std::cerr, "jet_chEmEF", jet_chemef);
       debug_print_vector(std::cerr, "jet_jetid", jet_jetid);
@@ -711,14 +729,16 @@ JmeEventResult JetMETCorrector::compute_event(Event &event) const {
       debug_print_vector(std::cerr, "lowpt_phi", lowpt_phi);
       debug_print_vector(std::cerr, "lowpt_area", lowpt_area);
       debug_print_vector(std::cerr, "lowpt_muon", lowpt_muon);
+      debug_print_vector(std::cerr, "lowpt_muon_dphi", lowpt_muon_dphi);
+      debug_print_vector(std::cerr, "lowpt_emef", lowpt_emef);
       debug_print_vector(std::cerr, "lowpt_zero", lowpt_zero);
       debug_print_scalar(std::cerr, "met_dx", met_dx);
       debug_print_scalar(std::cerr, "met_dy", met_dy);
     }
     result.met_smeared = bundle.met_smeared->produce(
-        jet_pt, jet_eta, jet_phi, jet_mass, jet_raw, jet_area, jet_muon, jet_neemef, jet_chemef, jet_jetid, rho, jet_genidx,
+        jet_pt, jet_eta, jet_phi, jet_mass, jet_raw, jet_area, jet_muon, jet_muon_dphi, jet_neemef, jet_chemef, jet_jetid, rho, jet_genidx,
         jet_parton, jet_seed, run, gen_pt, gen_eta, gen_phi, gen_mass, raw_met_phi, raw_met_pt, lowpt_rawpt, lowpt_eta, lowpt_phi,
-        lowpt_area, lowpt_muon, lowpt_zero, lowpt_zero, met_dx, met_dy, static_cast<unsigned char>(0));
+        lowpt_area, lowpt_muon, lowpt_muon_dphi, lowpt_emef, lowpt_zero, met_dx, met_dy, static_cast<unsigned char>(0));
     if (debug_bundle_io) {
       debug_print_met_output(std::cerr, "bundle.met_smeared", bundle.met_smeared->available(), result.met_smeared);
     }

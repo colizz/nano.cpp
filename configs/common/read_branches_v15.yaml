@@ -48,6 +48,7 @@ read_branches:
   - Jet_rawFactor
   - Jet_area
   - Jet_muonSubtrFactor
+  - Jet_muonSubtrDeltaPhi
   - Jet_btagDeepFlavB
   - Jet_btagPNetB
   - Jet_btagUParTAK4B
@@ -65,6 +66,8 @@ read_branches:
   - CorrT1METJet_phi
   - CorrT1METJet_area
   - CorrT1METJet_muonSubtrFactor
+  - CorrT1METJet_muonSubtrDeltaPhi
+  - CorrT1METJet_EmEF
   - FatJet_pt
   - FatJet_eta
   - FatJet_phi

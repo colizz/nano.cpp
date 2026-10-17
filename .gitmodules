@@ -1,3 +1,4 @@
 [submodule "external/CMSJMECalculators"]
 	path = external/CMSJMECalculators
-	url = ssh://git@gitlab.cern.ch:7999/coli/CMSJMECalculators.git
+	url = https://gitlab.cern.ch/cms-analysis/general/CMSJMECalculators.git
+	branch = main

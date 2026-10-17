@@ -80,6 +80,21 @@ For agents: for framework details, read `docs/framework-structure.md`.
 
 ## Build the Project
 
+Clone the repository with its submodules:
+
+```bash
+git clone --recurse-submodules https://github.com/colizz/nano.cpp.git
+cd nano.cpp
+```
+
+Or, from an existing checkout, update the repository and its submodules:
+
+```bash
+git pull --ff-only
+git submodule sync --recursive
+git submodule update --init --recursive
+```
+
 Use the ROOT/LCG runtime before configuring, building, or running:
 
 ```bash
