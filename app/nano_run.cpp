@@ -206,6 +206,9 @@ nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &
   }
   const auto additional_read_branches = nano::runtime::yaml_string_list(settings, "additional_read_branches");
   config.read_branches.insert(config.read_branches.end(), additional_read_branches.begin(), additional_read_branches.end());
+  if (settings["output"] && settings["output"]["fill_subjet_info"]) {
+    config.fill_subjet_info = settings["output"]["fill_subjet_info"].as<bool>();
+  }
   if (settings["output"] && settings["output"]["include_lhe_weights"]) {
     config.include_lhe_weights = settings["output"]["include_lhe_weights"].as<bool>();
   }

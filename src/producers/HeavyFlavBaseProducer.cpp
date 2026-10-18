@@ -117,15 +117,21 @@ void HeavyFlavBaseProducer::begin_file() {
 
   constexpr std::string_view fatjet_float_variables[]{
       "pt", "eta", "phi", "mass", "rawpt", "sdmass", "sdmass_uncorrected",
-      "tau1", "tau2", "tau3", "tau4", "deltaR_sj12", "sj1_pt", "sj1_eta", "sj1_phi",
-      "sj1_mass", "sj1_rawpt", "sj1_btagdeepcsv", "sj2_pt", "sj2_eta", "sj2_phi", "sj2_mass",
-      "sj2_rawpt", "sj2_btagdeepcsv", "dr_H", "dr_H_daus", "H_pt", "dr_Z", "dr_Z_daus", "Z_pt",
+      "tau1", "tau2", "tau3", "tau4", "dr_H", "dr_H_daus", "H_pt", "dr_Z", "dr_Z_daus", "Z_pt",
       "dr_W", "dr_W_daus", "W_pt", "dr_T", "dr_T_b", "dr_T_Wq_max", "dr_T_Wq_min", "T_pt",
   };
   constexpr std::string_view fatjet_int_variables[]{
       "genfj_nbhadrons", "genfj_nchadrons", "genfj_partonflavour", "nbhadrons", "nchadrons", "partonflavour",
-      "sj1_nbhadrons", "sj1_nchadrons", "sj1_partonflavour", "sj2_nbhadrons", "sj2_nchadrons",
-      "sj2_partonflavour", "H_decay", "Z_decay", "W_decay", "T_Wq_max_pdgId", "T_Wq_min_pdgId",
+      "H_decay", "Z_decay", "W_decay", "T_Wq_max_pdgId", "T_Wq_min_pdgId",
+  };
+
+  constexpr std::string_view subjet_float_variables[]{
+      "deltaR_sj12", "sj1_pt", "sj1_eta", "sj1_phi", "sj1_mass", "sj1_rawpt", "sj1_btagdeepcsv",
+      "sj2_pt", "sj2_eta", "sj2_phi", "sj2_mass", "sj2_rawpt", "sj2_btagdeepcsv",
+  };
+  constexpr std::string_view subjet_int_variables[]{
+      "sj1_nbhadrons", "sj1_nchadrons", "sj1_partonflavour",
+      "sj2_nbhadrons", "sj2_nchadrons", "sj2_partonflavour",
   };
 
   const auto num_output_fatjets = output_fatjet_count();
@@ -134,6 +140,14 @@ void HeavyFlavBaseProducer::begin_file() {
   }
   for (std::size_t fatjet_index = 0; fatjet_index < num_output_fatjets; ++fatjet_index) {
     out_.branch(fatjet_branch_name(fatjet_index, "is_qualified"), false);
+    if (config_.fill_subjet_info) {
+      for (const auto variable : subjet_float_variables) {
+        out_.branch(fatjet_branch_name(fatjet_index, variable), 0.0f);
+      }
+      for (const auto variable : subjet_int_variables) {
+        out_.branch(fatjet_branch_name(fatjet_index, variable), std::int32_t{0});
+      }
+    }
     for (const auto variable : fatjet_float_variables) {
       out_.branch(fatjet_branch_name(fatjet_index, variable), 0.0f);
     }
@@ -340,7 +354,6 @@ void HeavyFlavBaseProducer::fill_fatjet_info(Event &event, const std::vector<Obj
   const auto fill = [this, &prefix](std::string_view variable, const auto &value) {
     out_.fill(prefix + std::string(variable), value);
   };
-  const auto subjets = fj.extra<std::vector<ObjectView>>("subjets");
 
   fill("is_qualified", fj.get<bool>("is_qualified"));
   fill("pt", fj.pt());
@@ -357,30 +370,33 @@ void HeavyFlavBaseProducer::fill_fatjet_info(Event &event, const std::vector<Obj
   for (const auto &tagger : config_.tagger_names) {
     fill(tagger, safe_object_float(fj, tagger, -99.0f));
   }
-  if (!subjets.empty()) {
-    fill("sj1_pt", subjets[0].pt());
-    fill("sj1_eta", subjets[0].eta());
-    fill("sj1_phi", subjets[0].phi());
-    fill("sj1_mass", subjets[0].mass());
-    fill("sj1_rawpt", safe_object_float(subjets[0], "rawPt", -1.0f));
-    fill("sj1_btagdeepcsv", safe_object_float(subjets[0], "btagDeepB", -1.0f));
-    fill("sj1_nbhadrons", safe_object_int(subjets[0], "nBHadrons", -1));
-    fill("sj1_nchadrons", safe_object_int(subjets[0], "nCHadrons", -1));
-    fill("sj1_partonflavour", safe_object_int(subjets[0], "partonFlavour", -1));
-  }
-  if (subjets.size() > 1U) {
-    fill("deltaR_sj12", delta_r(subjets[0], subjets[1]));
-    fill("sj2_pt", subjets[1].pt());
-    fill("sj2_eta", subjets[1].eta());
-    fill("sj2_phi", subjets[1].phi());
-    fill("sj2_mass", subjets[1].mass());
-    fill("sj2_rawpt", safe_object_float(subjets[1], "rawPt", -1.0f));
-    fill("sj2_btagdeepcsv", safe_object_float(subjets[1], "btagDeepB", -1.0f));
-    fill("sj2_nbhadrons", safe_object_int(subjets[1], "nBHadrons", -1));
-    fill("sj2_nchadrons", safe_object_int(subjets[1], "nCHadrons", -1));
-    fill("sj2_partonflavour", safe_object_int(subjets[1], "partonFlavour", -1));
-  } else {
-    fill("deltaR_sj12", 99.0f);
+  if (config_.fill_subjet_info) {
+    const auto &subjets = fj.extra<std::vector<ObjectView>>("subjets");
+    if (!subjets.empty()) {
+      fill("sj1_pt", subjets[0].pt());
+      fill("sj1_eta", subjets[0].eta());
+      fill("sj1_phi", subjets[0].phi());
+      fill("sj1_mass", subjets[0].mass());
+      fill("sj1_rawpt", safe_object_float(subjets[0], "rawPt", -1.0f));
+      fill("sj1_btagdeepcsv", safe_object_float(subjets[0], "btagDeepB", -1.0f));
+      fill("sj1_nbhadrons", safe_object_int(subjets[0], "nBHadrons", -1));
+      fill("sj1_nchadrons", safe_object_int(subjets[0], "nCHadrons", -1));
+      fill("sj1_partonflavour", safe_object_int(subjets[0], "partonFlavour", -1));
+    }
+    if (subjets.size() > 1U) {
+      fill("deltaR_sj12", delta_r(subjets[0], subjets[1]));
+      fill("sj2_pt", subjets[1].pt());
+      fill("sj2_eta", subjets[1].eta());
+      fill("sj2_phi", subjets[1].phi());
+      fill("sj2_mass", subjets[1].mass());
+      fill("sj2_rawpt", safe_object_float(subjets[1], "rawPt", -1.0f));
+      fill("sj2_btagdeepcsv", safe_object_float(subjets[1], "btagDeepB", -1.0f));
+      fill("sj2_nbhadrons", safe_object_int(subjets[1], "nBHadrons", -1));
+      fill("sj2_nchadrons", safe_object_int(subjets[1], "nCHadrons", -1));
+      fill("sj2_partonflavour", safe_object_int(subjets[1], "partonFlavour", -1));
+    } else {
+      fill("deltaR_sj12", 99.0f);
+    }
   }
 
   const auto gen_fatjets = event.collection(genfatjet_name_).objects();

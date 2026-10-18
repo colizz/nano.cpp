@@ -64,6 +64,7 @@ float corrected_sv_mass(const ObjectView &sv) {
  * - Require at least one of the two leading fatjets to be qualified.
  * - When channels.qcd.fill_sv is enabled, store matched-SV counts, track sums,
  *   leading-SV properties, and corrected SV masses for both fatjet slots.
+ *   Subjet details additionally require output.fill_subjet_info.
  */
 
 HeavyFlavQCDSampleProducer::HeavyFlavQCDSampleProducer(ProducerConfig config)
@@ -87,7 +88,7 @@ void HeavyFlavQCDSampleProducer::select_secondary_vertices(Event &event) const {
   // Build the pt-ordered SV collection used throughout the event and attach
   // the corrected mass to each SV when detailed SV output is enabled.
   auto secondary_vertices = event.collection("SV").objects();
-  if (fill_sv_) {
+  if (fill_sv_ && config_.fill_subjet_info) {
     for (auto &sv : secondary_vertices) {
       sv.set("masscor", corrected_sv_mass(sv));
     }
@@ -135,6 +136,9 @@ void HeavyFlavQCDSampleProducer::match_secondary_vertices(
       fatjet.set("ntracks_sv12", ntracks_sv12);
     }
 
+    if (!apply_sv_criteria_ && !(fill_sv_ && config_.fill_subjet_info)) {
+      continue;
+    }
     auto subjets = fatjet.extra<std::vector<ObjectView>>("subjets");
     const auto match_radius =
         subjets.size() == 2U
@@ -146,14 +150,14 @@ void HeavyFlavQCDSampleProducer::match_secondary_vertices(
       for (const auto &sv : secondary_vertices) {
         if (delta_r(sv, subjet) < match_radius) {
           subjet_vertices.push_back(sv);
-          if (fill_sv_) {
+          if (fill_sv_ && config_.fill_subjet_info) {
             subjet_ntracks += sv.get<std::int32_t>("ntracks");
           }
         }
       }
       // For each subjet, define the matched SV list (sv_list) as well.
       subjet.set("sv_list", std::move(subjet_vertices));
-      if (fill_sv_) {
+      if (fill_sv_ && config_.fill_subjet_info) {
         const auto &matched_subjet_vertices =
             subjet.extra<std::vector<ObjectView>>("sv_list");
         subjet.set("nsv",
@@ -164,7 +168,7 @@ void HeavyFlavQCDSampleProducer::match_secondary_vertices(
     fatjet.set("subjets", subjets);
 
     float sj12_masscor_dxysig = 0.0f;
-    if (fill_sv_ && subjets.size() >= 2U) {
+    if (fill_sv_ && config_.fill_subjet_info && subjets.size() >= 2U) {
       const auto &sj1_vertices =
           subjets[0].extra<std::vector<ObjectView>>("sv_list");
       const auto &sj2_vertices =
@@ -178,7 +182,7 @@ void HeavyFlavQCDSampleProducer::match_secondary_vertices(
         sj12_masscor_dxysig = selected_sv.get<float>("masscor");
       }
     }
-    if (fill_sv_) {
+    if (fill_sv_ && config_.fill_subjet_info) {
       fatjet.set("sj12_masscor_dxysig", sj12_masscor_dxysig);
     }
   }
@@ -205,6 +209,10 @@ void HeavyFlavQCDSampleProducer::define_fatjet_sv_branches(
   // corresponding fj_2 branches.
   for (const auto variable : fatjet_int_variables) {
     out_.branch(fatjet_sv_branch_name(fatjet_index, variable), std::int32_t{0});
+  }
+
+  if (!config_.fill_subjet_info) {
+    return;
   }
 
   // Define both subjet blocks, for example fj_1_sj1_ntracks,
@@ -246,6 +254,10 @@ void HeavyFlavQCDSampleProducer::fill_fatjet_sv_info(
   fill("nsv_ptgt50", fatjet.get<std::int32_t>("nsv_ptgt50"));
   fill("ntracks", fatjet.get<std::int32_t>("ntracks"));
   fill("ntracks_sv12", fatjet.get<std::int32_t>("ntracks_sv12"));
+
+  if (!config_.fill_subjet_info) {
+    return;
+  }
 
   const auto &subjets = fatjet.extra<std::vector<ObjectView>>("subjets");
   const auto num_output_subjets = std::min<std::size_t>(2U, subjets.size());

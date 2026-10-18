@@ -31,6 +31,14 @@
 - `configs/run/<channel>_<era>_v<version>.yaml`: executable runtime cards, including the ROOT/TTree `preselection`, triggers, channel options, and common manifest inheritance.
 - CLI `--set key=value`: final override layer.
 
+`output.fill_subjet_info` defaults to `true` for all channels. Setting it to
+`false` skips registration and filling of `sj1_*`, `sj2_*`, and `deltaR_sj12`
+output branches, including QCD subjet SV details and `sj12_masscor_dxysig`.
+QCD fatjet-level SV counts and track sums remain controlled by
+`channels.qcd.fill_sv`. Subjet JME and soft-drop mass reconstruction remain
+active, as does subjet/SV matching required by `channels.qcd.apply_sv_criteria`.
+For example, use `--set output.fill_subjet_info=false` to disable these details.
+
 ## Current channel implementations
 
 - `src/producers/HeavyFlavMuonSampleProducer.cpp`: muon-channel event selection and channel-specific output branches.

@@ -31,6 +31,8 @@ output:
   # without the branch, the output branch is present and filled with an empty
   # vector.
   include_lhe_weights: false
+  # Register and fill subjet detail branches.
+  fill_subjet_info: true
 
 # Certified luminosity masks used when `nano_run --run-data` is enabled.
 # Keep these as CVMFS paths so data jobs use the centrally published masks.
