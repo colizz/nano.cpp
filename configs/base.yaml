@@ -14,15 +14,6 @@
 #   --set channels.minimal.leading_fatjet_pt_min=500
 #   --set btag.v15.2024.medium=0.13
 
-# Channel-specific scalar options. Runtime cards can override entries under
-# their own channel, and producers read them through ProducerConfig::channel_options.
-channels:
-  minimal:
-    leading_fatjet_pt_min: 400.0
-  qcd:
-    apply_sv_criteria: true
-    fill_sv: true
-
 # Output-level optional branches. Keep large vector branches disabled by
 # default and enable them in a channel card or with `--set` when needed.
 output:

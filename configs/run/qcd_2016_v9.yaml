@@ -37,3 +37,9 @@ additional_read_branches:
 
 required_triggers:
   - HLT_PFHT900
+
+# QCD-channel scalar options.
+channels:
+  qcd:
+    apply_sv_criteria: true
+    fill_sv: true

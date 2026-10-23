@@ -16,7 +16,7 @@ preselection: nFatJet>0
 
 required_triggers: []
 
-# Minimal-channel scalar options. These override configs/base.yaml defaults.
+# Minimal-channel scalar options.
 channels:
   minimal:
     leading_fatjet_pt_min: 400.0
