@@ -25,12 +25,17 @@ add_library(nanoaodtools_cpp
   src/helpers/FatjetGenMatching.cpp
   src/helpers/JetMETCorrector.cpp
   src/helpers/JmeVariation.cpp
+  src/helpers/MuonCorrector.cpp
+  src/helpers/NloEWWeightProducer.cpp
   src/helpers/PuWeightProducer.cpp
   src/helpers/TopPtWeightProducer.cpp
   src/producers/HeavyFlavBaseProducer.cpp
   src/producers/HeavyFlavMinimalProducer.cpp
   src/producers/HeavyFlavMuonSampleProducer.cpp
+  src/producers/HeavyFlavTrigSFProducer.cpp
   src/producers/HeavyFlavQCDSampleProducer.cpp
+  src/producers/HeavyFlavZbbSampleProducer.cpp
+  src/producers/HeavyFlavZmmSampleProducer.cpp
 )
 
 target_include_directories(nanoaodtools_cpp PUBLIC include)

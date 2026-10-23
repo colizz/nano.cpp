@@ -55,8 +55,7 @@ In practice this means:
   - attach linked subjets to a given fatjet: `fj.set("subjets", linked_subjets);`
 - Channel producers are plain C++ event loops. In the main `analyze()` function, use `return false` to veto an event.
 - A YAML card in `configs/run/` contains all information to guide the run.
-- Corrections use modern correctionlib payloads where possible. JEC and MET corrections build on the
-  [CMSJMECalculators](https://gitlab.cern.ch/cms-analysis/general/CMSJMECalculators) project.
+- Corrections use modern correctionlib payloads where possible. JEC and MET corrections build on the [CMSJMECalculators](https://gitlab.cern.ch/cms-analysis/general/CMSJMECalculators) project.
 
 You do not need to write this code or worry about C++ syntax; agents will fill in the implementation, and you only need to review it.
 
@@ -65,8 +64,11 @@ You do not need to write this code or worry about C++ syntax; agents will fill i
 The implemented channels are:
 
 - `muon`: a heavy-flavour muon control region targeting semileptonic ttbar-like phase space, enriched in boosted top/W jets.
+- `trigsf`: a semileptonic ttbar control region for measuring boosted AK8 event-level trigger efficiencies and data/MC scale factors.
 - `minimal`: a lightweight boosted-AK8 stream that runs the shared lepton cleaning, JME, and fatjet preparation, then keeps the leading cleaned AK8 jet above the configured `channels.minimal.leading_fatjet_pt_min` threshold.
 - `qcd`: a dijet control region that retains the two leading cleaned AK8 jets and requires at least one qualified fatjet satisfying the soft-drop mass selection, with secondary-vertex matching enabled by default. The region is enriched in heavy-flavor QCD jets and provides gluon-enriched proxy samples for X->bb/cc calibration studies, including sfBDT-based methods.
+- `zbb`: a boosted dijet control region with two AK8 jets ranked by their Xbb discriminator scores and an optional Xbb discriminator requirement. The Z→bb fatjet mass peak is used to calibrate the Xbb tagging efficiency.
+- `zmm`: a boosted Z→μμ recoil control region requiring exactly two opposite-sign muons. This complementary control region constrains the inclusive Z+jets cross-section estimate used in the Z→bb-based calibration of the Xbb tagging efficiency.
 
 Main files:
 
@@ -133,7 +135,7 @@ Useful options:
 --variations nominal,jes_up,jes_down
 ```
 
-`--variations` takes a comma-separated list and writes one ROOT file per requested variation. Supported JME names currently include `nominal`, `jes_up`, `jes_down`, `jer_up`, `jer_down`, `met_up`, and `met_down`.
+`--variations` takes a comma-separated list and writes one ROOT file per requested variation. Supported names are `nominal`, `jes_up`, `jes_down`, `jer_up`, `jer_down`, `met_up`, `met_down`, `muon_scale_up`, `muon_scale_down`, `muon_smear_up`, and `muon_smear_down`.
 
 ## Run Validation
 

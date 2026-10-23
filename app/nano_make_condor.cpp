@@ -72,7 +72,7 @@ CliOptions parse_args(int argc, char **argv) {
     }
   }
   if (opts.input_yaml.empty() || opts.job_dir.empty() || opts.output_dir.empty() || opts.config_file.empty()) {
-    throw std::runtime_error("Usage: nano_make_condor --input-yaml <samples.yaml> --job-dir <condor-dir> --output-dir <dir> --config <card.yaml> [--nfiles-per-job 1] [--variations nominal,jes_up,...]. If omitted, --variations defaults to nominal.");
+    throw std::runtime_error("Usage: nano_make_condor --input-yaml <samples.yaml> --job-dir <condor-dir> --output-dir <dir> --config <card.yaml> [--nfiles-per-job 1] [--variations nominal,jes_up,...,muon_smear_down]. If omitted, --variations defaults to nominal.");
   }
   return opts;
 }

@@ -5,7 +5,6 @@
 #include "nano/helpers/FatjetGenMatching.h"
 #include "nano/helpers/JetMETCorrector.h"
 #include "nano/helpers/PuWeightProducer.h"
-#include "nano/helpers/TopPtWeightProducer.h"
 
 #include <algorithm>
 #include <cmath>
@@ -79,7 +78,6 @@ void prepare_raw_kinematics(Event &event, std::string_view object_name) {
 HeavyFlavBaseProducer::HeavyFlavBaseProducer(ProducerConfig config) : config_(std::move(config)) {
   jme_corrector_ = std::make_unique<JetMETCorrector>(config_);
   pu_weight_producer_ = std::make_unique<PuWeightProducer>(config_);
-  top_pt_weight_producer_ = std::make_unique<TopPtWeightProducer>(config_.era);
   fatjet_gen_matching_ = std::make_unique<FatjetGenMatching>();
 }
 
@@ -113,7 +111,6 @@ void HeavyFlavBaseProducer::begin_file() {
     out_.branch("LHEScaleWeight", std::vector<float>{});
   }
   pu_weight_producer_->begin_file(out_);
-  top_pt_weight_producer_->begin_file(out_);
 
   constexpr std::string_view fatjet_float_variables[]{
       "pt", "eta", "phi", "mass", "rawpt", "sdmass", "sdmass_uncorrected",
@@ -292,8 +289,8 @@ void HeavyFlavBaseProducer::load_gen_history(Event &event, std::vector<ObjectVie
 
 // Reset and fill event-level output shared by all heavy-flavour channels:
 // identifiers, era/lumi labels, MET filters, L1 prefiring, lepton count, HT,
-// corrected MET, generator weight, optional LHE weights, PU weights, and top-pt
-// weights. LHE weights are copied only to the nominal output stream because the
+// corrected MET, generator weight, optional LHE weights, and PU weights.
+// LHE weights are copied only to the nominal output stream because the
 // same input vector would otherwise be duplicated across every JME variation.
 void HeavyFlavBaseProducer::fill_base_event_info(Event &event, JmeVariation variation) {
   out_.reset();
@@ -334,7 +331,6 @@ void HeavyFlavBaseProducer::fill_base_event_info(Event &event, JmeVariation vari
                                     : std::vector<float>{});
   }
   pu_weight_producer_->fill(event, out_);
-  top_pt_weight_producer_->fill(event, out_);
 }
 
 // Fill one selected fatjet slot. Values come from the JME-corrected fatjet and

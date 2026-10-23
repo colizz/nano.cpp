@@ -39,10 +39,12 @@ HeavyFlavMuonSampleProducer::HeavyFlavMuonSampleProducer(ProducerConfig config)
     : HeavyFlavBaseProducer([&config] {
         config.channel = "muon";
         return config;
-      }()) {}
+      }()),
+      top_pt_weight_producer_(config_.era) {}
 
 void HeavyFlavMuonSampleProducer::begin_file() {
   HeavyFlavBaseProducer::begin_file();
+  top_pt_weight_producer_.begin_file(out_);
   out_.branch("passMuTrig", false);
   out_.branch("muon_pt", 0.0f);
   out_.branch("muon_eta", 0.0f);
@@ -68,6 +70,7 @@ bool HeavyFlavMuonSampleProducer::analyze_common(Event &event) {
   event.set("muons", selected_muons);
 
   prepare_common_objects(event);
+  top_pt_weight_producer_.prepare(event);
   return true;
 }
 
@@ -117,6 +120,7 @@ bool HeavyFlavMuonSampleProducer::analyze_variation(Event &event, const JmeEvent
 
   fill_base_event_info(event, variation);
   fill_fatjet_info(event, probe_jets, 0U);
+  top_pt_weight_producer_.fill(event, out_);
 
   out_.fill("passMuTrig", pass_trigger(event, config_.required_triggers));
   out_.fill("muon_pt", mu.pt());

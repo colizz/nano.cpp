@@ -1,0 +1,25 @@
+# Semileptonic ttbar control region for event-level boosted AK8 trigger SFs.
+# Run with --channel trigsf.
+extends:
+  - ../base.yaml
+  - ../common/nano_branches_v15.yaml
+  - ../common/stored_tagger_names_v15.yaml
+  - ../common/read_branches_v15.yaml
+
+era: "2024"
+nano_version: "v15"
+
+preselection: HLT_IsoMu24 && Sum$(Muon_pt>55 && abs(Muon_eta)<2.4 && Muon_tightId && Muon_pfRelIso04_all<0.15)>0 && nFatJet>0
+
+# Reference trigger: required for both data and MC.
+required_triggers:
+  - HLT_IsoMu24
+
+# Copy each decision unchanged under its original branch name. No target cut.
+studied_triggers:
+  - HLT_AK8PFJet500
+  - HLT_AK8PFJet380_SoftDropMass30
+
+additional_read_branches:
+  - Muon_pfRelIso04_all
+  - Electron_cutBased

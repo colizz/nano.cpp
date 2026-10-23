@@ -3,7 +3,10 @@
 #include "nano/io/RootOutputFile.h"
 #include "nano/producers/HeavyFlavMinimalProducer.h"
 #include "nano/producers/HeavyFlavMuonSampleProducer.h"
+#include "nano/producers/HeavyFlavTrigSFProducer.h"
 #include "nano/producers/HeavyFlavQCDSampleProducer.h"
+#include "nano/producers/HeavyFlavZbbSampleProducer.h"
+#include "nano/producers/HeavyFlavZmmSampleProducer.h"
 
 #include "runtime_common.h"
 
@@ -36,7 +39,13 @@ bool parse_double_strict(const std::string &text, double &value) {
 nano::ChannelOptions parse_channel_options(const YAML::Node &settings, const std::string &channel) {
   nano::ChannelOptions options;
   const auto channels = settings["channels"];
-  const auto node = channels && channels.IsMap() ? channels[channel] : YAML::Node{};
+  if (!channels) {
+    return options;
+  }
+  if (!channels.IsMap()) {
+    throw std::runtime_error("channels must be a map");
+  }
+  const auto node = channels[channel];
   if (!node) {
     return options;
   }
@@ -113,7 +122,7 @@ CliOptions parse_args(int argc, char **argv) {
   }
 
   if (opts.input_files.empty() || opts.output_file.empty() || opts.config_file.empty()) {
-    throw std::runtime_error("Usage: nano_run --input-files <files> --output-file <out.root> --config <card.yaml> [--channel muon|minimal|qcd] [--num-events -1] [--run-data] [--variations nominal,jes_up,...] [--set key=value]. If omitted, --variations defaults to nominal.");
+    throw std::runtime_error("Usage: nano_run --input-files <files> --output-file <out.root> --config <card.yaml> [--channel muon|trigsf|minimal|qcd|zbb|zmm] [--num-events -1] [--run-data] [--variations nominal,jes_up,...,muon_smear_down] [--set key=value]. If omitted, --variations defaults to nominal.");
   }
   return opts;
 }
@@ -195,6 +204,7 @@ nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &
   config.preselection = settings["preselection"].as<std::string>();
   config.channel_options = parse_channel_options(settings, channel);
   config.required_triggers = nano::runtime::yaml_string_list(settings, "required_triggers");
+  config.studied_triggers = nano::runtime::yaml_string_list(settings, "studied_triggers");
 
   const auto catalogue = settings["nano_branches"][config.nano_version]["trees"]["Events"]["branches"];
   if (!catalogue) {
@@ -240,6 +250,12 @@ nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &
   for (const auto &trigger : config.required_triggers) {
     if (seen.insert(trigger).second) {
       std::cerr << "Info: adding branch " << trigger << " to read_branches from required_triggers.\n";
+      config.read_branches.push_back(trigger);
+    }
+    config.nano_branch_types[trigger] = nano::BranchType::kBool;
+  }
+  for (const auto &trigger : config.studied_triggers) {
+    if (seen.insert(trigger).second) {
       config.read_branches.push_back(trigger);
     }
     config.nano_branch_types[trigger] = nano::BranchType::kBool;
@@ -321,6 +337,30 @@ nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &
         item.second["correction_key"].as<std::string>(),
     };
   }
+  if (settings["muon_corrections"]) {
+    const auto node = settings["muon_corrections"];
+    config.muon_payload_dir = node["payload_dir"].as<std::string>();
+    config.muon_smearing_file = node["smearing_file"].as<std::string>();
+    if (node["smearing_tool"]) {
+      config.muon_smearing_tool = node["smearing_tool"].as<std::string>();
+    }
+    for (const auto &item : node["campaigns"]) {
+      auto &campaign = config.muon_eras[item.first.as<std::string>()];
+      campaign.payload_subdir = item.second["payload_subdir"].as<std::string>();
+      if (const auto value = item.second["version"]) {
+        campaign.version = value.as<std::string>();
+      }
+      if (const auto value = item.second["scale_smearing_file"]) {
+        campaign.scale_smearing_file = value.as<std::string>();
+      }
+      if (const auto value = item.second["sf_file"]) {
+        campaign.sf_file = value.as<std::string>();
+      }
+      if (const auto value = item.second["high_pt_sf_file"]) {
+        campaign.high_pt_sf_file = value.as<std::string>();
+      }
+    }
+  }
   if (settings["jet_veto_map"]) {
     const auto node = settings["jet_veto_map"];
     config.jet_veto_map_enabled = node["enabled"] ? node["enabled"].as<bool>() : false;
@@ -339,6 +379,15 @@ nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &
 }
 
 std::unique_ptr<nano::HeavyFlavBaseProducer> make_producer(const nano::ProducerConfig &config) {
+  if (config.channel == "trigsf") {
+    return std::make_unique<nano::HeavyFlavTrigSFProducer>(config);
+  }
+  if (config.channel == "zbb") {
+    return std::make_unique<nano::HeavyFlavZbbSampleProducer>(config);
+  }
+  if (config.channel == "zmm") {
+    return std::make_unique<nano::HeavyFlavZmmSampleProducer>(config);
+  }
   if (config.channel == "muon") {
     return std::make_unique<nano::HeavyFlavMuonSampleProducer>(config);
   }
@@ -380,7 +429,8 @@ std::vector<std::string> process_one_file_variations(const std::string &input_fi
     throw std::runtime_error("Missing tree " + cli.tree_name + " in " + input_file);
   }
 
-  const auto config = make_config(settings, cli.channel);
+  auto config = make_config(settings, cli.channel);
+  config.requested_variations = variations;
   const auto lumi_mask = cli.run_data ? std::make_unique<nano::runtime::LumiMask>(nano::runtime::LumiMask::from_file(data_lumi_mask_path(settings, config)))
                                       : nullptr;
   auto producer_base = make_producer(config);

@@ -17,7 +17,6 @@ namespace nano {
 
 class JetMETCorrector;
 class PuWeightProducer;
-class TopPtWeightProducer;
 class FatjetGenMatching;
 
 struct JmeObjectConfig {
@@ -45,10 +44,19 @@ struct PuEraConfig {
   std::string correction_key;
 };
 
+struct MuonEraConfig {
+  std::string payload_subdir;
+  std::string version = "latest";
+  std::string scale_smearing_file = "muon_scalesmearing.json.gz";
+  std::string sf_file = "muon_Z.json.gz";
+  std::string high_pt_sf_file = "muon_HighPt.json.gz";
+};
+
 struct JetVetoMapEraConfig {
   std::string payload_subdir;
   std::string correction_key;
 };
+
 
 struct BTagConfig {
   std::string branch;
@@ -71,7 +79,9 @@ struct ProducerConfig {
   std::string nano_version = "v15";
   std::string preselection;
   ChannelOptions channel_options;
+  std::vector<JmeVariation> requested_variations{JmeVariation::Nominal};
   std::vector<std::string> required_triggers;
+  std::vector<std::string> studied_triggers;
   std::vector<std::string> read_branches;
   std::unordered_map<std::string, BranchType> nano_branch_types;
   std::vector<std::string> tagger_names;
@@ -87,6 +97,10 @@ struct ProducerConfig {
   std::unordered_map<std::string, JmeEraConfig> jme_eras;
   std::string pu_payload_dir;
   std::unordered_map<std::string, PuEraConfig> pu_eras;
+  std::string muon_payload_dir;
+  std::string muon_smearing_file;
+  std::string muon_smearing_tool = "stdflat";
+  std::unordered_map<std::string, MuonEraConfig> muon_eras;
   bool jet_veto_map_enabled = false;
   std::string jet_veto_map_payload_dir;
   std::string jet_veto_map_type = "jetvetomap";
@@ -127,7 +141,6 @@ protected:
   std::string genfatjet_name_ = "GenJetAK8";
   std::unique_ptr<JetMETCorrector> jme_corrector_;
   std::unique_ptr<PuWeightProducer> pu_weight_producer_;
-  std::unique_ptr<TopPtWeightProducer> top_pt_weight_producer_;
   std::unique_ptr<FatjetGenMatching> fatjet_gen_matching_;
   OutputModel out_;
 };

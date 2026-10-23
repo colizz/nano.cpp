@@ -1,0 +1,40 @@
+# Zbb channel runtime card for 2024 v15.
+
+extends:
+  - ../base.yaml
+  - ../common/nano_branches_v15.yaml
+  - ../common/read_branches_v15.yaml
+
+era: "2024"
+nano_version: "v15"
+
+preselection: Sum$(abs(FatJet_eta)<2.4)>1
+
+required_triggers:
+  - HLT_AK8PFJet380_SoftDropMass30
+  - HLT_AK8PFJet500
+
+# Output only the selected tagger scores; keep reconstruction inputs intact.
+output:
+  fill_subjet_info: false
+
+stored_tagger_names:
+  # GlobalParT3
+  - globalParT3_Xbb
+  - globalParT3_QCD
+  # ParticleNet
+  - particleNet_XbbVsQCD
+  - particleNet_QCD
+  # ParticleNetLegacy
+  - particleNetLegacy_Xbb
+  - particleNetLegacy_QCD
+
+additional_read_branches:
+  - LHE_Vpt
+  - LHEPart_pdgId
+  - LHEPart_pt
+
+channels:
+  zbb:
+    apply_xbb_cut: false  # Optional loose cut xbb discriminator; disabled by default.
+    nlo_ewk_payload_dir: data/k-factors  # TODO: Check whether changes are needed when adapting to Run 2.

@@ -1,0 +1,40 @@
+# Zmm channel runtime card for 2024 v15.
+
+extends:
+  - ../base.yaml
+  - ../common/nano_branches_v15.yaml
+  - ../common/read_branches_v15.yaml
+
+era: "2024"
+nano_version: "v15"
+
+preselection: Sum$(Muon_pt>15 && abs(Muon_eta)<2.4)>1 && nFatJet>0
+
+required_triggers:
+  - HLT_Mu50
+  - HLT_TkMu50
+
+# Keep recoil-jet kinematics without tagger scores or subjet details.
+output:
+  fill_subjet_info: false
+
+stored_tagger_names: []
+
+additional_read_branches:
+  - LHE_Vpt
+  - LHEPart_pdgId
+  - LHEPart_pt
+  - Muon_charge
+  - Muon_highPtId
+  - Muon_nTrackerLayers
+
+muon_corrections:
+  payload_dir: /cvmfs/cms-griddata.cern.ch/cat/metadata/MUO
+  smearing_file: data/muo-derived/randomNumbers.json.gz
+  campaigns:
+    2024_NanoAODv15:
+      payload_subdir: Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15
+
+channels:
+  zmm:
+    nlo_ewk_payload_dir: data/k-factors  # TODO: Check whether changes are needed when adapting to Run 2.

@@ -12,7 +12,9 @@ public:
   explicit TopPtWeightProducer(std::string era);
 
   void begin_file(OutputModel &out) const;
-  void fill(Event &event, OutputModel &out) const;
+  // Compute once per event before applying reconstruction variations.
+  void prepare(Event &event) const;
+  void fill(const Event &event, OutputModel &out) const;
 
 private:
   std::string era_;

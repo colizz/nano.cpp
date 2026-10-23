@@ -26,9 +26,9 @@ void TopPtWeightProducer::begin_file(OutputModel &out) const {
   out.branch("topptWeight", 1.0f);
 }
 
-void TopPtWeightProducer::fill(Event &event, OutputModel &out) const {
+void TopPtWeightProducer::prepare(Event &event) const {
   if (!event.is_mc()) {
-    out.fill("topptWeight", 1.0f);
+    event.set("topptWeight", 1.0f);
     return;
   }
 
@@ -44,7 +44,7 @@ void TopPtWeightProducer::fill(Event &event, OutputModel &out) const {
     gen_tops.push_back(gp);
   }
   if (gen_tops.size() != 2U) {
-    out.fill("topptWeight", 1.0f);
+    event.set("topptWeight", 1.0f);
     return;
   }
 
@@ -65,7 +65,11 @@ void TopPtWeightProducer::fill(Event &event, OutputModel &out) const {
     }
     return weight;
   };
-  out.fill("topptWeight", std::sqrt(sf(gen_tops[0].pt()) * sf(gen_tops[1].pt())));
+  event.set("topptWeight", std::sqrt(sf(gen_tops[0].pt()) * sf(gen_tops[1].pt())));
+}
+
+void TopPtWeightProducer::fill(const Event &event, OutputModel &out) const {
+  out.fill("topptWeight", event.get<float>("topptWeight"));
 }
 
 }  // namespace nano

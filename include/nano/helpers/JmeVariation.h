@@ -14,6 +14,10 @@ enum class JmeVariation {
   JerDown,
   MetUp,
   MetDown,
+  MuonScaleUp,
+  MuonScaleDown,
+  MuonSmearUp,
+  MuonSmearDown,
 };
 
 std::string_view variation_name(JmeVariation variation);

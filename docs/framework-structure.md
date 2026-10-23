@@ -19,8 +19,8 @@
 2. The merged runtime config's `read_branches` list declares the exact input branches to bind.
 3. `nano_run` resolves their types from `configs/common/nano_branches_*.yaml`, and `NanoReader` binds those branches.
 4. Each selected entry is wrapped as `Event`.
-5. The channel producer runs `analyze(Event&)`.
-6. `OutputModel` receives branch values.
+5. For each event, the runner calls `analyze_common(Event&)` once, using the requested variations stored in `ProducerConfig`. Events that fail this step skip all subsequent processing.
+6. For each surviving event, the runner calls `compute_jme_result()` once, then `analyze_variation()` sequentially for each requested variation. Each accepted result is immediately copied from `OutputModel` to the corresponding output file.
 7. `RootOutputFile` writes `Events`, plus filtered `Runs` and `LuminosityBlocks`.
 
 ## Configuration sources
@@ -31,13 +31,7 @@
 - `configs/run/<channel>_<era>_v<version>.yaml`: executable runtime cards, including the ROOT/TTree `preselection`, triggers, channel options, and common manifest inheritance.
 - CLI `--set key=value`: final override layer.
 
-`output.fill_subjet_info` defaults to `true` for all channels. Setting it to
-`false` skips registration and filling of `sj1_*`, `sj2_*`, and `deltaR_sj12`
-output branches, including QCD subjet SV details and `sj12_masscor_dxysig`.
-QCD fatjet-level SV counts and track sums remain controlled by
-`channels.qcd.fill_sv`. Subjet JME and soft-drop mass reconstruction remain
-active, as does subjet/SV matching required by `channels.qcd.apply_sv_criteria`.
-For example, use `--set output.fill_subjet_info=false` to disable these details.
+`output.fill_subjet_info` defaults to `true` for all channels. Setting it to `false` skips registration and filling of `sj1_*`, `sj2_*`, and `deltaR_sj12` output branches, including QCD subjet SV details and `sj12_masscor_dxysig`. QCD fatjet-level SV counts and track sums remain controlled by `channels.qcd.fill_sv`. Subjet JME and soft-drop mass reconstruction remain active, as does subjet/SV matching required by `channels.qcd.apply_sv_criteria`. For example, use `--set output.fill_subjet_info=false` to disable these details.
 
 ## Current channel implementations
 
