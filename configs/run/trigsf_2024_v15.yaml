@@ -9,6 +9,9 @@ extends:
 era: "2024"
 nano_version: "v15"
 
+output:
+  fill_subjet_info: false
+
 preselection: HLT_IsoMu24 && Sum$(Muon_pt>55 && abs(Muon_eta)<2.4 && Muon_tightId && Muon_pfRelIso04_all<0.15)>0 && nFatJet>0
 
 # Reference trigger: required for both data and MC.
@@ -17,8 +20,20 @@ required_triggers:
 
 # Copy each decision unchanged under its original branch name. No target cut.
 studied_triggers:
-  - HLT_AK8PFJet500
+  # Single AK8: pT and soft-drop mass.
+  - HLT_AK8PFJet220_SoftDropMass40
+  - HLT_AK8PFJet230_SoftDropMass40
   - HLT_AK8PFJet380_SoftDropMass30
+  - HLT_AK8PFJet400_SoftDropMass30
+  - HLT_AK8PFJet425_SoftDropMass30
+  - HLT_AK8PFJet450_SoftDropMass30
+
+  # Single AK8: pT only.
+  - HLT_AK8PFJet320
+  - HLT_AK8PFJet400
+  - HLT_AK8PFJet450
+  - HLT_AK8PFJet500
+  - HLT_AK8PFJet550
 
 additional_read_branches:
   - Muon_pfRelIso04_all

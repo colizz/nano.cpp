@@ -44,6 +44,17 @@ void HeavyFlavTrigSFProducer::begin_file() {
   out_.branch("muon_eta", 0.0f);
   out_.branch("muon_pfRelIso04", 0.0f);
   out_.branch("nAK8", std::int32_t{0});
+  // Use the same version-dependent mass definitions as the zbb channel.
+  if (config_.nano_version == "v9" || config_.nano_version == "v15") {
+    out_.branch("fj_1_pnetmass", 0.0f);
+  }
+  if (config_.nano_version == "v12" || config_.nano_version == "v15") {
+    out_.branch("fj_1_pnetrun3mass", 0.0f);
+  }
+  if (config_.nano_version == "v15") {
+    out_.branch("fj_1_gptmass_x2p", 0.0f);
+    out_.branch("fj_1_gptmass_generic", 0.0f);
+  }
   for (const auto &trigger : config_.studied_triggers) {
     out_.branch(trigger, false);
   }
@@ -146,6 +157,18 @@ bool HeavyFlavTrigSFProducer::analyze_variation(Event &event, const JmeEventResu
 
   fill_base_event_info(event, variation);
   fill_fatjet_info(event, probe_jets, 0U);
+  const auto &probe = probe_jets.front();
+  if (config_.nano_version == "v9" || config_.nano_version == "v15") {
+    out_.fill("fj_1_pnetmass", probe.get<float>(config_.nano_version == "v9" ? "particleNet_mass" : "particleNetLegacy_mass"));
+  }
+  if (config_.nano_version == "v12" || config_.nano_version == "v15") {
+    out_.fill("fj_1_pnetrun3mass", probe.mass() * probe.get<float>("particleNet_massCorr"));
+  }
+  if (config_.nano_version == "v15") {
+    const auto raw_mass = probe.get<float>("rawMass");
+    out_.fill("fj_1_gptmass_x2p", raw_mass * probe.get<float>("globalParT3_massCorrX2p"));
+    out_.fill("fj_1_gptmass_generic", raw_mass * probe.get<float>("globalParT3_massCorrGeneric"));
+  }
   top_pt_weight_producer_.fill(event, out_);
   const auto mu = event.get<std::vector<ObjectView>>("muons").front();
   out_.fill("passMuTrig", pass_trigger(event, config_.required_triggers));
