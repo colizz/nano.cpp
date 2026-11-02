@@ -92,6 +92,7 @@ struct ProducerConfig {
   std::string jet_veto_map_type = "jetvetomap";
   std::unordered_map<std::string, JetVetoMapEraConfig> jet_veto_map_eras;
   bool include_lhe_weights = false;
+  bool include_ps_weights = false;
   // Output details only; subjets required for reconstruction/selection stay active.
   bool fill_subjet_info = true;
 };

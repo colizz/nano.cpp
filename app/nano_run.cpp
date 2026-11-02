@@ -212,6 +212,9 @@ nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &
   if (settings["output"] && settings["output"]["include_lhe_weights"]) {
     config.include_lhe_weights = settings["output"]["include_lhe_weights"].as<bool>();
   }
+  if (settings["output"] && settings["output"]["include_ps_weights"]) {
+    config.include_ps_weights = settings["output"]["include_ps_weights"].as<bool>();
+  }
 
   // read_branches safety checks:
   // - Runtime cards should explicitly list every physical NanoAOD branch the
@@ -228,6 +231,14 @@ nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &
                                config.read_branches.end());
     if (config.read_branches.size() != old_size) {
       std::cerr << "Warning: removing LHEScaleWeight from read_branches because output.include_lhe_weights is false.\n";
+    }
+  }
+  if (!config.include_ps_weights) {
+    const auto old_size = config.read_branches.size();
+    config.read_branches.erase(std::remove(config.read_branches.begin(), config.read_branches.end(), "PSWeight"),
+                               config.read_branches.end());
+    if (config.read_branches.size() != old_size) {
+      std::cerr << "Warning: removing PSWeight from read_branches because output.include_ps_weights is false.\n";
     }
   }
   if (!settings["stored_tagger_names"]) {
@@ -255,6 +266,11 @@ nano::ProducerConfig make_config(const YAML::Node &settings, const std::string &
     std::cerr << "Warning: adding missing branch LHEScaleWeight to read_branches because output.include_lhe_weights is true. "
                  "Please list it explicitly in read_branches.\n";
     config.read_branches.push_back("LHEScaleWeight");
+  }
+  if (config.include_ps_weights && seen.insert("PSWeight").second) {
+    std::cerr << "Warning: adding missing branch PSWeight to read_branches because output.include_ps_weights is true. "
+                 "Please list it explicitly in read_branches.\n";
+    config.read_branches.push_back("PSWeight");
   }
   for (const auto &branch_name : config.read_branches) {
     if (config.nano_branch_types.count(branch_name) != 0U) {

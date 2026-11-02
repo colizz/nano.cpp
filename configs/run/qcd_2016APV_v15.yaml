@@ -8,6 +8,9 @@ era: "2016APV"
 nano_version: "v15"
 preselection: nFatJet>1
 
+output:
+  include_ps_weights: true
+
 # Use a reduced tagger list tailored to the QCD channel.
 stored_tagger_names:
   - globalParT3_QCD
@@ -31,6 +34,7 @@ stored_tagger_names:
   - particleNet_massCorr
 
 additional_read_branches:
+  - PSWeight
   - SV_pt
   - SV_eta
   - SV_phi

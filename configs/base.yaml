@@ -31,6 +31,7 @@ output:
   # without the branch, the output branch is present and filled with an empty
   # vector.
   include_lhe_weights: false
+  include_ps_weights: false
   # Register and fill subjet detail branches.
   fill_subjet_info: true
 

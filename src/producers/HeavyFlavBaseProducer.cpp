@@ -112,6 +112,9 @@ void HeavyFlavBaseProducer::begin_file() {
   if (config_.include_lhe_weights) {
     out_.branch("LHEScaleWeight", std::vector<float>{});
   }
+  if (config_.include_ps_weights) {
+    out_.branch("PSWeight", std::vector<float>{});
+  }
   pu_weight_producer_->begin_file(out_);
   top_pt_weight_producer_->begin_file(out_);
 
@@ -332,6 +335,11 @@ void HeavyFlavBaseProducer::fill_base_event_info(Event &event, JmeVariation vari
     out_.fill("LHEScaleWeight", variation == JmeVariation::Nominal && event.has_physical_branch("LHEScaleWeight")
                                     ? event.vector<float>("LHEScaleWeight")
                                     : std::vector<float>{});
+  }
+  if (config_.include_ps_weights) {
+    out_.fill("PSWeight", event.is_mc() && variation == JmeVariation::Nominal && event.has_physical_branch("PSWeight")
+                             ? event.vector<float>("PSWeight")
+                             : std::vector<float>{});
   }
   pu_weight_producer_->fill(event, out_);
   top_pt_weight_producer_->fill(event, out_);
