@@ -1,0 +1,6 @@
+# DATA samples
+# UL2016 postVFP / no_HIPM.
+jetht:
+- [/JetHT/Run2016F-UL2016_NanoAODv15-v1/NANOAOD,
+   /JetHT/Run2016G-UL2016_NanoAODv15-v1/NANOAOD,
+   /JetHT/Run2016H-UL2016_NanoAODv15-v1/NANOAOD]
