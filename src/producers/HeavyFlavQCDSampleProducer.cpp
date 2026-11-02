@@ -78,6 +78,9 @@ HeavyFlavQCDSampleProducer::HeavyFlavQCDSampleProducer(ProducerConfig config)
 void HeavyFlavQCDSampleProducer::begin_file() {
   HeavyFlavBaseProducer::begin_file();
   out_.branch("passHTTrig", false);
+  for (const auto &trigger : config_.required_triggers) {
+    out_.branch(trigger, false);
+  }
   if (fill_sv_) {
     define_fatjet_sv_branches(0U);
     define_fatjet_sv_branches(1U);
@@ -343,7 +346,13 @@ bool HeavyFlavQCDSampleProducer::analyze_variation(
     fill_fatjet_sv_info(probe_jets, 0U);
     fill_fatjet_sv_info(probe_jets, 1U);
   }
-  out_.fill("passHTTrig", pass_trigger(event, config_.required_triggers));
+  bool pass_ht_trigger = false;
+  for (const auto &trigger : config_.required_triggers) {
+    const auto passed = safe_bool(event, trigger);
+    out_.fill(trigger, passed);
+    pass_ht_trigger = pass_ht_trigger || passed;
+  }
+  out_.fill("passHTTrig", pass_ht_trigger);
   return true;
 }
 

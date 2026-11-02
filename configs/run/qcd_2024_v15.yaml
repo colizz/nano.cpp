@@ -44,4 +44,14 @@ additional_read_branches:
   - SV_pAngle
 
 required_triggers:
+  - HLT_PFHT180
+  - HLT_PFHT250
+  - HLT_PFHT350
+  - HLT_PFHT370
+  - HLT_PFHT430
+  - HLT_PFHT510
+  - HLT_PFHT590
+  - HLT_PFHT680
+  - HLT_PFHT780
+  - HLT_PFHT890
   - HLT_PFHT1050
