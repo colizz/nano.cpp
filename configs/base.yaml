@@ -223,7 +223,7 @@ jec:
         algo: AK4PFPuppi
         jec_tag_mc: Summer23Prompt23_V4_MC
         jec_tag_data: Summer23Prompt23_V4_DATA
-        jer_tag_mc: Summer23Prompt23_RunCv1234_JRV2_MC
+        jer_tag_mc: Summer23Prompt23_RunCv1234_JRV3_MC
       fatjet:
         algo: AK8PFPuppi
         jec_tag_mc: inherit
@@ -244,7 +244,7 @@ jec:
         algo: AK4PFPuppi
         jec_tag_mc: Summer23BPixPrompt23_V4_MC
         jec_tag_data: Summer23BPixPrompt23_V4_DATA
-        jer_tag_mc: Summer23BPixPrompt23_RunD_JRV2_MC
+        jer_tag_mc: Summer23BPixPrompt23_RunD_JRV3_MC
       fatjet:
         algo: AK8PFPuppi
         jec_tag_mc: inherit
