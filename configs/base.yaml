@@ -20,7 +20,8 @@ channels:
   minimal:
     leading_fatjet_pt_min: 400.0
   qcd:
-    apply_sv_criteria: true
+    mode: qcd # qcd or higgs_signal
+    apply_sv_criteria: auto
     fill_sv: true
 
 # Output-level optional branches. Keep large vector branches disabled by

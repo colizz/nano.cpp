@@ -15,7 +15,7 @@ public:
                          JmeVariation variation) override;
 
 protected:
-  std::size_t output_fatjet_count() const override { return 2U; }
+  std::size_t output_fatjet_count() const override { return higgs_signal_mode_ ? 1U : 2U; }
 
 private:
   void select_secondary_vertices(Event &event) const;
@@ -26,6 +26,7 @@ private:
   void fill_fatjet_sv_info(const std::vector<ObjectView> &fatjets,
                            std::size_t fatjet_index);
 
+  bool higgs_signal_mode_ = false;
   bool apply_sv_criteria_ = true;
   bool fill_sv_ = true;
 };

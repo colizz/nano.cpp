@@ -6,7 +6,7 @@ extends:
 
 era: "2023"
 nano_version: "v12"
-preselection: nFatJet>1
+preselection: nFatJet>0
 
 output:
   include_ps_weights: true

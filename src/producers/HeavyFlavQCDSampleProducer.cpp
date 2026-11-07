@@ -23,6 +23,30 @@ bool get_channel_bool(const ProducerConfig &config, const std::string &key) {
   return it->second;
 }
 
+bool is_higgs_signal_mode(const ProducerConfig &config) {
+  const auto it = config.channel_options.strings.find("mode");
+  const auto mode = it == config.channel_options.strings.end() ? "qcd" : it->second;
+  if (mode != "qcd" && mode != "higgs_signal") {
+    throw std::runtime_error("channels.qcd.mode must be qcd or higgs_signal");
+  }
+  return mode == "higgs_signal";
+}
+
+bool resolve_sv_criteria(const ProducerConfig &config, bool higgs_signal) {
+  const auto it = config.channel_options.bools.find("apply_sv_criteria");
+  if (it != config.channel_options.bools.end()) {
+    if (higgs_signal && it->second) {
+      throw std::runtime_error("higgs_signal mode requires channels.qcd.apply_sv_criteria=false (or auto)");
+    }
+    return it->second;
+  }
+  const auto text = config.channel_options.strings.find("apply_sv_criteria");
+  if (text != config.channel_options.strings.end() && text->second != "auto") {
+    throw std::runtime_error("channels.qcd.apply_sv_criteria must be true, false, or auto");
+  }
+  return !higgs_signal;
+}
+
 std::string fatjet_sv_branch_name(std::size_t fatjet_index,
                                   std::string_view variable) {
   // Convert the zero-based output slot and a logical variable name into the
@@ -51,7 +75,7 @@ float corrected_sv_mass(const ObjectView &sv) {
  * - Retain both leading boosted AK8 jets for heavy-flavour tagger studies.
  * - Require displaced-vertex content in the probe jets by default.
  *
- * Event selection implemented in this producer
+ * Event selection implemented in this producer (default mode: qcd)
  * - Build loose leptons and use the shared AK4/AK8 lepton cleaning.
  * - Apply the shared AK4/AK8/SubJet JME corrections and MET propagation.
  * - Require at least two selected AK8 fatjets and keep the leading two in
@@ -65,6 +89,13 @@ float corrected_sv_mass(const ObjectView &sv) {
  * - When channels.qcd.fill_sv is enabled, store matched-SV counts, track sums,
  *   leading-SV properties, and corrected SV masses for both fatjet slots.
  *   Subjet details additionally require output.fill_subjet_info.
+ *
+ * For Higgs signal mode (channels.qcd.mode=higgs_signal)
+ * - Require only one shared-selected, lepton-cleaned AK8; output the smallest
+ *   dr_H jet in fj_1.
+ * - No mass, SV, or matching-distance cuts. Requires MC.
+ * - apply_sv_criteria=auto disables SV cuts here.
+ *
  */
 
 HeavyFlavQCDSampleProducer::HeavyFlavQCDSampleProducer(ProducerConfig config)
@@ -72,7 +103,8 @@ HeavyFlavQCDSampleProducer::HeavyFlavQCDSampleProducer(ProducerConfig config)
         config.channel = "qcd";
         return config;
       }()),
-      apply_sv_criteria_(get_channel_bool(config_, "apply_sv_criteria")),
+      higgs_signal_mode_(is_higgs_signal_mode(config_)),
+      apply_sv_criteria_(resolve_sv_criteria(config_, higgs_signal_mode_)),
       fill_sv_(get_channel_bool(config_, "fill_sv")) {}
 
 void HeavyFlavQCDSampleProducer::begin_file() {
@@ -82,8 +114,9 @@ void HeavyFlavQCDSampleProducer::begin_file() {
     out_.branch(trigger, false);
   }
   if (fill_sv_) {
-    define_fatjet_sv_branches(0U);
-    define_fatjet_sv_branches(1U);
+    for (std::size_t i = 0; i < output_fatjet_count(); ++i) {
+      define_fatjet_sv_branches(i);
+    }
   }
 }
 
@@ -292,6 +325,9 @@ void HeavyFlavQCDSampleProducer::fill_fatjet_sv_info(
 }
 
 bool HeavyFlavQCDSampleProducer::analyze_common(Event &event) {
+  if (higgs_signal_mode_ && !event.is_mc()) {
+    throw std::runtime_error("higgs_signal mode requires MC gen Higgs information");
+  }
   prepare_common_objects(event);
   select_secondary_vertices(event);
   return true;
@@ -302,10 +338,16 @@ bool HeavyFlavQCDSampleProducer::analyze_variation(
   apply_jme_and_select_jets(event, jme_result, variation);
 
   auto probe_jets = event.get<std::vector<ObjectView>>("fatjets");
-  if (probe_jets.size() < 2U) {
+  if (probe_jets.size() < output_fatjet_count()) {
     return false;
   }
-  probe_jets.resize(2U);
+  if (higgs_signal_mode_) {
+    // Stable ties retain corrected-pt order, including events without a gen Higgs.
+    std::stable_sort(probe_jets.begin(), probe_jets.end(), [](const auto &a, const auto &b) {
+      return a.template get<float>("dr_H") < b.template get<float>("dr_H");
+    });
+  }
+  probe_jets.resize(output_fatjet_count());
 
   const auto &secondary_vertices =
       event.get<std::vector<ObjectView>>("secondary_vertices");
@@ -329,7 +371,7 @@ bool HeavyFlavQCDSampleProducer::analyze_variation(
     const auto softdrop_mass = fatjet.get<float>("msoftdrop");
     const auto pass_sv = !apply_sv_criteria_ || pass_sv_requirement(fatjet);
     const auto is_qualified =
-        softdrop_mass > 50.0f && softdrop_mass < 200.0f && pass_sv;
+        higgs_signal_mode_ || (softdrop_mass > 50.0f && softdrop_mass < 200.0f && pass_sv);
     fatjet.set("is_qualified", is_qualified);
     has_qualified_fatjet = has_qualified_fatjet || is_qualified;
   }
@@ -340,11 +382,11 @@ bool HeavyFlavQCDSampleProducer::analyze_variation(
   // Reset and fill the shared event output, the two common fatjet blocks, the
   // optional QCD SV blocks, and the channel trigger decision.
   fill_base_event_info(event, variation);
-  fill_fatjet_info(event, probe_jets, 0U);
-  fill_fatjet_info(event, probe_jets, 1U);
-  if (fill_sv_) {
-    fill_fatjet_sv_info(probe_jets, 0U);
-    fill_fatjet_sv_info(probe_jets, 1U);
+  for (std::size_t i = 0; i < output_fatjet_count(); ++i) {
+    fill_fatjet_info(event, probe_jets, i);
+    if (fill_sv_) {
+      fill_fatjet_sv_info(probe_jets, i);
+    }
   }
   bool pass_ht_trigger = false;
   for (const auto &trigger : config_.required_triggers) {
