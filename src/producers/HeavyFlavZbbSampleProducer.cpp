@@ -30,8 +30,13 @@ namespace nano {
  *   the score-leading jet to pass GPT > 0.7, ParticleNetLegacy > 0.9, or
  *   Run-3 ParticleNet > 0.9. Missing discriminator inputs have value -999.
  * - Require the two selected AK8 jets to satisfy |DeltaPhi| >= pi/2.
+ * - For v15, evaluate the event trigger-OR SF using the highest-pt jet among
+ *   all cleaned AK8 jets before Xbb ranking/truncation, with corrected pt and
+ *   rawMass * globalParT3_massCorrX2p. Recompute the probe for each JME state.
  * - Keep both selected AK8 jets for output. Store the configured HLT decisions
  *   individually without applying a trigger OR veto in this producer.
+ * - Store fatjetHLTSF and stat shifts separately from genWeight; Data and
+ *   unavailable/invalid SFs have unit weights, with validity/status diagnostics.
  */
 
 HeavyFlavZbbSampleProducer::HeavyFlavZbbSampleProducer(ProducerConfig config)
@@ -39,7 +44,11 @@ HeavyFlavZbbSampleProducer::HeavyFlavZbbSampleProducer(ProducerConfig config)
         config.channel = "zbb";
         return config;
       }()),
-      nlo_ew_weight_producer_(config_) {
+      nlo_ew_weight_producer_(config_),
+      trigger_sf_([this] {
+        const auto it = config_.channel_options.strings.find("fatjet_hlt_sf_file");
+        return it == config_.channel_options.strings.end() ? std::string{} : it->second;
+      }(), "zbb_" + config_.era + "_or_trigger_sf_gptmass_x2p") {
   const auto it = config_.channel_options.bools.find("apply_xbb_cut");
   if (it != config_.channel_options.bools.end()) {
     apply_xbb_cut_ = it->second;
@@ -51,6 +60,10 @@ HeavyFlavZbbSampleProducer::HeavyFlavZbbSampleProducer(ProducerConfig config)
 void HeavyFlavZbbSampleProducer::begin_file() {
   HeavyFlavBaseProducer::begin_file();
   nlo_ew_weight_producer_.begin_file(out_);
+  for (const auto *name : {"fatjetHLTSF", "fatjetHLTSF_stat_up", "fatjetHLTSF_stat_down"}) out_.branch(name, 1.f);
+  for (const auto *name : {"fatjetHLTSF_pt", "fatjetHLTSF_msd", "fatjetHLTSF_gptmass_x2p"}) out_.branch(name, -1.f);
+  out_.branch("fatjetHLTSF_valid", false);
+  out_.branch("fatjetHLTSF_status", std::int32_t{0});
   for (std::size_t index = 0; index < output_fatjet_count(); ++index) {
     const auto prefix = "fj_" + std::to_string(index + 1U) + "_";
     if (config_.nano_version == "v9" || config_.nano_version == "v15") {
@@ -113,6 +126,15 @@ bool HeavyFlavZbbSampleProducer::analyze_variation(Event &event, const JmeEventR
   if (fatjets.size() < 2U) {
     return false;
   }
+  // Capture all cleaned jets before Xbb ranking/truncation. Recompute for each JME state.
+  std::vector<TriggerSFProbe> trigger_probes;
+  if (config_.nano_version == "v15") {
+    for (const auto &jet : fatjets) {
+      trigger_probes.push_back({jet.pt(), jet.get<float>("rawMass") * jet.get<float>("globalParT3_massCorrX2p"),
+                                jet.get<float>("msoftdrop")});
+    }
+  }
+  const auto trigger_sf = trigger_sf_.evaluate(trigger_probes, event.is_mc());
   // Leading/subleading refer to score order. Equal scores retain the
   // corrected-pt order established by the base-producer jet selection.
   std::stable_sort(fatjets.begin(), fatjets.end(), [](const auto &a, const auto &b) {
@@ -159,6 +181,14 @@ bool HeavyFlavZbbSampleProducer::analyze_variation(Event &event, const JmeEventR
   // keep them separate from genWeight for downstream event weighting.
   fill_base_event_info(event, variation);
   nlo_ew_weight_producer_.fill(event, out_);
+  out_.fill("fatjetHLTSF", trigger_sf.nominal);
+  out_.fill("fatjetHLTSF_stat_up", trigger_sf.stat_up);
+  out_.fill("fatjetHLTSF_stat_down", trigger_sf.stat_down);
+  out_.fill("fatjetHLTSF_valid", trigger_sf.valid);
+  out_.fill("fatjetHLTSF_status", std::int32_t{trigger_sf.status});
+  out_.fill("fatjetHLTSF_pt", trigger_sf.pt);
+  out_.fill("fatjetHLTSF_gptmass_x2p", trigger_sf.mass);
+  out_.fill("fatjetHLTSF_msd", trigger_sf.msd);
   for (std::size_t index = 0; index < fatjets.size(); ++index) {
     fill_fatjet_info(event, fatjets, index);
     const auto prefix = "fj_" + std::to_string(index + 1U) + "_";

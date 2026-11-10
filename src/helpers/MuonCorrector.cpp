@@ -5,10 +5,26 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <stdexcept>
 #include <unordered_map>
 
 namespace nano {
+
+/*
+ * Muon corrections and SF usage
+ * - Momentum scale/smearing and weight SFs are separate operations. SFs remain
+ *   usable without a scale/smearing payload; compute() then throws if called.
+ * - scale_factor() and high_pt_scale_factor() multiply per-muon SFs from the
+ *   standard and high-pt payloads, respectively, using signed eta and pt.
+ *   Muons outside -2.4 <= eta < 2.4 or below minimum_pt contribute unity.
+ * - Stat/syst outputs are full alternate event weights: multiply nominal +/-
+ *   abs(stat) or abs(syst) for all eligible muons coherently. The independent
+ *   syst component avoids including stat again through systup/systdown.
+ * - trigger_or_scale_factor() delegates to MuonTriggerSF for an event-level
+ *   efficiency ratio. Producers store these weights separately from genWeight;
+ *   downstream MC weighting chooses nominal or one alternate per correction.
+ */
 
 namespace {
 
@@ -29,7 +45,7 @@ float evaluate_sf(const correction::Correction::Ref &corr,
                   const ObjectView &muon, const std::string &variation,
                   float minimum_pt) {
   if (muon.eta() < -2.4f || muon.eta() >= 2.4f || muon.pt() < minimum_pt) {
-    return 1.0f;
+    return variation == "stat" || variation == "syst" ? 0.0f : 1.0f;
   }
   return static_cast<float>(
       corr->evaluate({static_cast<double>(muon.eta()),
@@ -50,11 +66,13 @@ MuonSFResult scale_factor_impl(
     const auto nominal_value = evaluate_sf(corr, muon, "nominal", minimum_pt);
     const auto stat_value = evaluate_sf(corr, muon, "stat", minimum_pt);
     const auto stat_delta = std::abs(stat_value);
+    // Payload systup/systdown may include stat; use the independent component.
+    const auto syst_delta = std::abs(evaluate_sf(corr, muon, "syst", minimum_pt));
     nominal *= nominal_value;
     stat_up *= nominal_value + stat_delta;
     stat_down *= nominal_value - stat_delta;
-    syst_up *= evaluate_sf(corr, muon, "systup", minimum_pt);
-    syst_down *= evaluate_sf(corr, muon, "systdown", minimum_pt);
+    syst_up *= nominal_value + syst_delta;
+    syst_down *= nominal_value - syst_delta;
   }
   return {nominal, stat_up, stat_down, syst_up, syst_down};
 }
@@ -90,11 +108,15 @@ MuonCorrector::MuonCorrector(const ProducerConfig &config) {
         return variation == JmeVariation::MuonScaleUp || variation == JmeVariation::MuonScaleDown ||
                variation == JmeVariation::MuonSmearUp || variation == JmeVariation::MuonSmearDown;
       });
-  mc_calculator_ = MuonVariationsCalculator::create(
-      scale_smearing_file, add_systematics, true, config.muon_smearing_file,
-      config.muon_smearing_tool);
-  data_calculator_ = MuonVariationsCalculator::create(scale_smearing_file,
-                                                      false, false, "", "");
+  if (std::filesystem::exists(scale_smearing_file)) {
+    mc_calculator_ = std::make_unique<MuonVariationsCalculator>(MuonVariationsCalculator::create(
+        scale_smearing_file, add_systematics, true, config.muon_smearing_file,
+        config.muon_smearing_tool));
+    data_calculator_ = std::make_unique<MuonVariationsCalculator>(MuonVariationsCalculator::create(scale_smearing_file,
+        false, false, "", ""));
+  }
+  trigger_sf_ = std::make_unique<MuonTriggerSF>(config.era, root + "/" + it->second.sf_file,
+                                                it->second.trigger_efficiency_file);
   scale_factors_ = correction_set(root + "/" + it->second.sf_file);
   high_pt_scale_factors_ = correction_set(root + "/" + it->second.high_pt_sf_file);
 }
@@ -102,6 +124,8 @@ MuonCorrector::MuonCorrector(const ProducerConfig &config) {
 MuonVariationsCalculator::result_t
 MuonCorrector::compute(Event &event,
                         const std::vector<ObjectView> &muons) const {
+  if (!mc_calculator_ || !data_calculator_)
+    throw std::runtime_error("Muon momentum correction unavailable for this campaign");
   MuonVariationsCalculator::p4compv_t pt;
   MuonVariationsCalculator::p4compv_t eta;
   MuonVariationsCalculator::p4compv_t phi;
@@ -123,8 +147,8 @@ MuonCorrector::compute(Event &event,
   const auto seed =
       static_cast<int>(event.scalar<std::uint64_t>("event") & 0x7fffffffULL);
   return event.is_mc()
-             ? mc_calculator_.produce(pt, eta, phi, charge, layers, seed)
-             : data_calculator_.produce(pt, eta, phi, charge, layers, seed);
+             ? mc_calculator_->produce(pt, eta, phi, charge, layers, seed)
+             : data_calculator_->produce(pt, eta, phi, charge, layers, seed);
 }
 
 void MuonCorrector::apply(const MuonVariationsCalculator::result_t &result,
@@ -157,6 +181,12 @@ MuonSFResult MuonCorrector::high_pt_scale_factor(
     float minimum_pt) const {
   return scale_factor_impl(high_pt_scale_factors_, muons, correction_key,
                            minimum_pt);
+}
+
+MuonSFResult MuonCorrector::trigger_or_scale_factor(
+    const std::vector<ObjectView> &muons, const std::string &correction_key,
+    float minimum_pt) const {
+  return trigger_sf_->evaluate(muons, minimum_pt, correction_key);
 }
 
 } // namespace nano

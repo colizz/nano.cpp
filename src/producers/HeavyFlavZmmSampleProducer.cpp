@@ -17,7 +17,8 @@ namespace nano {
  * Event selection implemented in this producer
  * - Apply the configured muon scale correction and MC resolution smearing.
  * - Require exactly two muons with pt > 30 GeV, |eta| < 2.4, and
- *   `highPtId != 0` (tracker or global high-pt ID).
+ *   `highPtId == 2` (global high-pt ID).
+ * - Apply no isolation cut to the selected pair; mini-isolation is output only.
  * - Veto additional loose-ID muons with pt > 15 GeV and |eta| < 2.4.
  * - Require the selected muons to have opposite charges and leading pt >= 60 GeV.
  * - Require dimuon pt >= 400 GeV and 70 <= mass <= 110 GeV.
@@ -25,11 +26,16 @@ namespace nano {
  *   base-producer helpers, using nominal corrected muon momenta.
  * - Compute AK4/AK8/SubJet JME corrections once, then apply the requested
  *   variation before selecting the cleaned AK8 jets and corrected MET.
- * - Require at least one corrected AK8 jet separated from both selected muons
- *   by DeltaR > 0.8.
+ * - Require at least one cleaned AK8 jet with pt > 200 GeV, |eta| < 2.4,
+ *   the base-producer jet ID, and DeltaR > 0.8 from both selected muons.
  * - Keep only the leading separated AK8 jet for output.
  * - Store the configured muon-trigger OR decision without applying a trigger
  *   veto in this producer.
+ * - On MC, store the event trigger-OR SF for selected muons with pt >= 52 GeV
+ *   and the product of global high-pt ID SFs separately from genWeight.
+ *   The HLT payload denominator includes TkIsoLoose despite the absence of
+ *   a pair isolation cut. Store independent stat/syst shifts, efficiency-stat
+ *   shifts and HLT validity/source; recompute SFs for each selected muon state.
  */
 
 HeavyFlavZmmSampleProducer::HeavyFlavZmmSampleProducer(ProducerConfig config)
@@ -54,6 +60,10 @@ void HeavyFlavZmmSampleProducer::begin_file() {
     out_.branch(prefix + "mass", 0.0f);
     out_.branch(prefix + "miniIso", 0.0f);
   }
+  out_.branch("muonHLTSF_effstat_up", 1.f);
+  out_.branch("muonHLTSF_effstat_down", 1.f);
+  out_.branch("muonHLTSF_valid", true);
+  out_.branch("muonHLTSF_source", std::int32_t{0});
   for (const std::string name : {"muonHLTSF", "muonIDSF"}) {
     out_.branch(name, 1.0f);
     out_.branch(name + "_stat_up", 1.0f);
@@ -82,7 +92,7 @@ bool HeavyFlavZmmSampleProducer::analyze_common(Event &event) {
   // Muon scale/smear variations leave eta and ID unchanged. Reject impossible
   // pairs before evaluating any momentum corrections.
   const auto high_pt_count = std::count_if(muons.begin(), muons.end(), [](const auto &muon) {
-    return std::abs(muon.eta()) < 2.4f && muon.template get<std::int32_t>("highPtId") != 0;
+    return std::abs(muon.eta()) < 2.4f && muon.template get<std::int32_t>("highPtId") == 2;
   });
   if (high_pt_count < 2) {
     return false;
@@ -121,10 +131,10 @@ void HeavyFlavZmmSampleProducer::select_muons(Event &event, JmeVariation variati
   auto muons = event.collection("Muon").objects();
   muon_corrector_.apply(event.get<MuonVariationsCalculator::result_t>("muon_variations"), variation, muons);
   std::vector<ObjectView> selected;
-  // Require exactly two tracker/global high-pt-ID muons with pT > 30 GeV and |eta| < 2.4.
+  // Require exactly two global high-pt-ID muons with pT > 30 GeV and |eta| < 2.4.
   for (auto &muon : muons) {
     if (muon.pt() > 30.0f && std::abs(muon.eta()) < 2.4f &&
-        muon.get<std::int32_t>("highPtId") != 0) {
+        muon.get<std::int32_t>("highPtId") == 2) {
       selected.push_back(muon);
     }
   }
@@ -216,10 +226,17 @@ bool HeavyFlavZmmSampleProducer::analyze_variation(Event &event, const JmeEventR
     const auto hlt_key = "muonHLTSF_" + suffix;
     const auto id_key = "muonIDSF_" + suffix;
     if (!event.has(hlt_key)) {
-      event.set(hlt_key, muon_corrector_.high_pt_scale_factor(
-          muons, "NUM_HLT_DEN_TrkHighPtLooseRelIsoProbes", 52.0f));
+      // The trigger SF denominator includes TkIsoLoose; selection keeps no isolation cut.
+      event.set(hlt_key, muon_corrector_.trigger_or_scale_factor(
+          muons, MuonTriggerSF::correction_name(config_.era), 52.0f));
+      // HighPtID is the global high-pt ID; TrackerMuons is the measurement denominator.
       event.set(id_key, muon_corrector_.scale_factor(muons, "NUM_HighPtID_DEN_TrackerMuons", 10.0f));
     }
+    const auto &hlt = event.get<MuonSFResult>(hlt_key);
+    out_.fill("muonHLTSF_effstat_up", hlt.effstat_up);
+    out_.fill("muonHLTSF_effstat_down", hlt.effstat_down);
+    out_.fill("muonHLTSF_valid", hlt.valid);
+    out_.fill("muonHLTSF_source", std::int32_t{hlt.source});
     for (const std::string name : {"muonHLTSF", "muonIDSF"}) {
       const auto &sf = event.get<MuonSFResult>(name + "_" + suffix);
       out_.fill(name, sf.nominal);

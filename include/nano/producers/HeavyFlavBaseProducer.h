@@ -50,6 +50,7 @@ struct MuonEraConfig {
   std::string scale_smearing_file = "muon_scalesmearing.json.gz";
   std::string sf_file = "muon_Z.json.gz";
   std::string high_pt_sf_file = "muon_HighPt.json.gz";
+  std::string trigger_efficiency_file;
 };
 
 struct JetVetoMapEraConfig {
@@ -105,7 +106,7 @@ struct ProducerConfig {
   std::string jet_veto_map_payload_dir;
   std::string jet_veto_map_type = "jetvetomap";
   std::unordered_map<std::string, JetVetoMapEraConfig> jet_veto_map_eras;
-  bool include_lhe_weights = false;
+  bool include_lhe_weights = true;
   // Output details only; subjets required for reconstruction/selection stay active.
   bool fill_subjet_info = true;
 };

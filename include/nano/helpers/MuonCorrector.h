@@ -2,6 +2,7 @@
 
 #include "nano/core/Collection.h"
 #include "nano/helpers/JmeVariation.h"
+#include "nano/helpers/MuonTriggerSF.h"
 #include "nano/producers/HeavyFlavBaseProducer.h"
 
 #include "MuonVariationsCalculator.h"
@@ -16,14 +17,6 @@ class CorrectionSet;
 
 namespace nano {
 
-struct MuonSFResult {
-  float nominal = 1.0f;
-  float stat_up = 1.0f;
-  float stat_down = 1.0f;
-  float syst_up = 1.0f;
-  float syst_down = 1.0f;
-};
-
 class MuonCorrector {
 public:
   explicit MuonCorrector(const ProducerConfig &config);
@@ -33,12 +26,15 @@ public:
              std::vector<ObjectView> &muons) const;
   MuonSFResult scale_factor(const std::vector<ObjectView> &muons, const std::string &correction_key,
                             float minimum_pt) const;
+  MuonSFResult trigger_or_scale_factor(const std::vector<ObjectView> &muons,
+                                      const std::string &correction_key, float minimum_pt) const;
   MuonSFResult high_pt_scale_factor(const std::vector<ObjectView> &muons,
                                     const std::string &correction_key, float minimum_pt) const;
 
 private:
-  MuonVariationsCalculator mc_calculator_;
-  MuonVariationsCalculator data_calculator_;
+  std::unique_ptr<MuonVariationsCalculator> mc_calculator_;
+  std::unique_ptr<MuonVariationsCalculator> data_calculator_;
+  std::unique_ptr<MuonTriggerSF> trigger_sf_;
   std::shared_ptr<correction::CorrectionSet> scale_factors_;
   std::shared_ptr<correction::CorrectionSet> high_pt_scale_factors_;
 };

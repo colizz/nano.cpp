@@ -23,8 +23,10 @@ add_library(nanoaodtools_cpp
   src/core/OutputModel.cpp
   src/core/Helpers.cpp
   src/helpers/FatjetGenMatching.cpp
+  src/helpers/FatjetTriggerSF.cpp
   src/helpers/JetMETCorrector.cpp
   src/helpers/JmeVariation.cpp
+  src/helpers/MuonTriggerSF.cpp
   src/helpers/MuonCorrector.cpp
   src/helpers/NloEWWeightProducer.cpp
   src/helpers/PuWeightProducer.cpp
