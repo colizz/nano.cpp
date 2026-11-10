@@ -11,6 +11,18 @@
 
 namespace nano {
 
+/*
+ * NLO EW weight usage
+ * - For MC, find a unique last-copy hard-process W/Z excluding top/Higgs decay
+ *   ancestry. Evaluate the W/Z EW payload at generator boson pt >= 100 GeV.
+ * - Store nominal=1+delta_EW and alternate weights nominal +/-
+ *   0.5*abs(nominal-1), separately from genWeight for downstream weighting.
+ *   Data, absent/ambiguous bosons and boson pt below threshold retain unity.
+ * - Cache once per event and reuse for reconstruction variations. lheVpt is
+ *   diagnostic only: prefer finite positive LHE_Vpt, otherwise use a unique
+ *   LHE W/Z with finite nonnegative pt; missing/invalid candidates yield -1.
+ */
+
 namespace {
 
 float get_lhe_v_pt(Event &event) {
@@ -18,7 +30,14 @@ float get_lhe_v_pt(Event &event) {
     return -1.0f;
   }
   if (event.has_physical_branch("LHE_Vpt")) {
-    return event.scalar<float>("LHE_Vpt");
+    const auto pt = event.scalar<float>("LHE_Vpt");
+    if (std::isfinite(pt) && pt > 0.0f) {
+      return pt;
+    }
+  }
+  // Hadronic W/Z samples can store zero in LHE_Vpt despite a valid LHE boson.
+  if (!event.has_physical_branch("LHEPart_pdgId") || !event.has_physical_branch("LHEPart_pt")) {
+    return -1.0f;
   }
 
   float pt = -1.0f;

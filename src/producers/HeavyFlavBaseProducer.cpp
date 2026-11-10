@@ -16,6 +16,22 @@
 
 namespace nano {
 
+/*
+ * Shared object selection and event weights
+ * - Build loose cleaning leptons with pt > 10 GeV, |dxy| < 0.05 cm,
+ *   |dz| < 0.2 cm and mini-isolation < 0.4: electrons require |eta| < 2.5
+ *   and the version-specific no-iso MVA WP90; muons require |eta| < 2.4
+ *   and looseId. These collections do not impose an event lepton veto.
+ * - After each JME variation, require AK8 pt > 200 GeV, AK4 pt > 25 GeV,
+ *   |eta| < 2.4 and the version-specific jet ID. Clean AK8/AK4 jets against
+ *   loose leptons with DeltaR >= jet_cone_size_/0.4 and sort by corrected pt.
+ * - Channel producers impose the event selection. MET filters and jet-veto
+ *   map results are stored as flags here rather than used as event vetoes.
+ * - Store genWeight and correction weights separately. With LHE output enabled
+ *   (the default), copy LHEScaleWeight/LHEPdfWeight only for nominal MC with
+ *   the input branch present; Data and other variations receive empty vectors.
+ */
+
 namespace {
 
 template <typename T>
@@ -109,6 +125,7 @@ void HeavyFlavBaseProducer::begin_file() {
   out_.branch("genWeight", 1.0f);
   if (config_.include_lhe_weights) {
     out_.branch("LHEScaleWeight", std::vector<float>{});
+    out_.branch("LHEPdfWeight", std::vector<float>{});
   }
   pu_weight_producer_->begin_file(out_);
 
@@ -326,9 +343,11 @@ void HeavyFlavBaseProducer::fill_base_event_info(Event &event, JmeVariation vari
   out_.fill("jetVetoFlag", event.has("jetVetoFlag") ? event.get<std::int32_t>("jetVetoFlag") : std::int32_t{-99});
   out_.fill("genWeight", event.is_mc() ? event.scalar<float>("genWeight") : 1.0f);
   if (config_.include_lhe_weights) {
-    out_.fill("LHEScaleWeight", variation == JmeVariation::Nominal && event.has_physical_branch("LHEScaleWeight")
-                                    ? event.vector<float>("LHEScaleWeight")
-                                    : std::vector<float>{});
+    for (const auto *branch : {"LHEScaleWeight", "LHEPdfWeight"}) {
+      out_.fill(branch, event.is_mc() && variation == JmeVariation::Nominal && event.has_physical_branch(branch)
+                            ? event.vector<float>(branch)
+                            : std::vector<float>{});
+    }
   }
   pu_weight_producer_->fill(event, out_);
 }

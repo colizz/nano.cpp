@@ -2,6 +2,7 @@
 
 #include "nano/producers/HeavyFlavBaseProducer.h"
 #include "nano/helpers/NloEWWeightProducer.h"
+#include "nano/helpers/FatjetTriggerSF.h"
 
 namespace nano {
 
@@ -19,6 +20,7 @@ protected:
 
 private:
   NloEWWeightProducer nlo_ew_weight_producer_;
+  FatjetTriggerSF trigger_sf_;
   bool apply_xbb_cut_ = false;
 
 };
